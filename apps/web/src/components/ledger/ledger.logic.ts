@@ -36,11 +36,6 @@ export function closedTopics(ledger: LedgerDocument): ReadonlyArray<LedgerTopic>
   return ledger.topics.filter((topic) => !isLiveTopic(topic));
 }
 
-/** Work under way and work waiting on a check open by default; the rest start folded. */
-export function topicStartsExpanded(topic: LedgerTopic): boolean {
-  return topic.status === "active" || topic.status === "review";
-}
-
 function isOpenItem(item: LedgerItem): boolean {
   return item.state === "open";
 }

@@ -23,6 +23,12 @@ function panel(props: Partial<Parameters<typeof LedgerPanel>[0]> = {}) {
   );
 }
 
+// The topics a user opens persist in localStorage; a test that opens one starts and ends with none.
+function freshStorage() {
+  window.localStorage.clear();
+  return { [Symbol.dispose]: () => window.localStorage.clear() };
+}
+
 describe("LedgerPanel", () => {
   it("shows the task list under the topic it was filed under", async () => {
     await using screen = await render(panel({ ledger: { ...BUSY_LEDGER, liveTopic: "T1" } }));
@@ -49,7 +55,9 @@ describe("LedgerPanel", () => {
         topic.name === "Attack slots" ? { ...topic, items: decisions } : topic,
       ),
     };
+    using _storage = freshStorage();
     await using screen = await render(panel({ ledger }));
+    await screen.getByRole("button", { name: /Attack slots/ }).click();
 
     await expect.element(screen.getByText("Decision 13")).toBeVisible();
     await expect.element(screen.getByText("Decision 12")).not.toBeInTheDocument();
@@ -97,7 +105,24 @@ describe("LedgerPanel", () => {
     expect(onSendPrompt).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the topics the user opened open after it mounts again", async () => {
+    using _storage = freshStorage();
+    {
+      await using screen = await render(panel());
+      await screen.getByRole("button", { name: /Skills and XP/ }).click();
+    }
+    await using screen = await render(panel());
+    await expect
+      .element(screen.getByRole("button", { name: /Skills and XP/ }))
+      .toHaveAttribute("aria-expanded", "true");
+    // Active work no longer opens itself.
+    await expect
+      .element(screen.getByRole("button", { name: /Attack slots/ }))
+      .toHaveAttribute("aria-expanded", "false");
+  });
+
   it("lays out a busy ledger as the mockup does", async () => {
+    using _storage = freshStorage();
     await using screen = await render(panel());
 
     await expect.element(screen.getByRole("heading", { name: "7 days Director" })).toBeVisible();
@@ -119,14 +144,14 @@ describe("LedgerPanel", () => {
     await expect.element(needs.getByText("Attack slots · your check")).toBeVisible();
 
     const topics = screen.getByRole("region", { name: "Topics" });
-    // Active and review topics start open; the rest are folded to one line.
+    // Every topic starts folded to one line.
     const attack = topics.getByRole("button", { name: /Attack slots/ });
-    await expect.element(attack).toHaveAttribute("aria-expanded", "true");
+    await expect.element(attack).toHaveAttribute("aria-expanded", "false");
+    const skills = topics.getByRole("button", { name: /Skills and XP/ });
+    await expect.element(skills.getByText("1 question · 1 to-do · 1 decided")).toBeVisible();
+    await userEvent.click(attack);
     await expect.element(topics.getByText("Six attack slots, two swinging at once")).toBeVisible();
     await expect.element(topics.getByText("2 open")).toBeVisible();
-    const skills = topics.getByRole("button", { name: /Skills and XP/ });
-    await expect.element(skills).toHaveAttribute("aria-expanded", "false");
-    await expect.element(skills.getByText("1 question · 1 to-do · 1 decided")).toBeVisible();
     await expect
       .element(topics.getByText("XP comes from kills and crafting only"))
       .not.toBeInTheDocument();
@@ -152,10 +177,12 @@ describe("LedgerPanel", () => {
   });
 
   it("shows closed items inline and opens Done in the All view", async () => {
+    using _storage = freshStorage();
     await using screen = await render(panel());
     await userEvent.click(screen.getByRole("button", { name: "All" }));
 
     const topics = screen.getByRole("region", { name: "Topics" });
+    await userEvent.click(topics.getByRole("button", { name: /Attack slots/ }));
     await expect.element(topics.getByText("Measure the 30 and 50 zombie scenes")).toBeVisible();
     await expect.element(topics.getByText("Four attack slots")).toBeVisible();
     await expect.element(topics.getByRole("button", { name: /closed/ })).not.toBeInTheDocument();
@@ -165,6 +192,7 @@ describe("LedgerPanel", () => {
   });
 
   it("folds a settled thread's done topic and keeps its answered question", async () => {
+    using _storage = freshStorage();
     await using screen = await render(panel({ ledger: SETTLED_LEDGER }));
 
     await expect.element(screen.getByText("Turn 3")).toBeVisible();

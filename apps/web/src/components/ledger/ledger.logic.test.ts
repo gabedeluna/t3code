@@ -14,7 +14,6 @@ import {
   needsYouCounts,
   topicCounts,
   topicSections,
-  topicStartsExpanded,
   topicSummary,
 } from "./ledger.logic";
 import { BUSY_LEDGER, OFF_LEDGER, SETTLED_LEDGER } from "./ledgerFixtures";
@@ -36,13 +35,6 @@ describe("ledger topics", () => {
     expect(liveTopics(SETTLED_LEDGER)).toEqual([]);
     expect(closedTopics(SETTLED_LEDGER).map((topic) => topic.name)).toEqual([
       "Scripts folder cleanup",
-    ]);
-  });
-
-  it("opens active and review topics by default", () => {
-    expect(BUSY_LEDGER.topics.filter(topicStartsExpanded).map((topic) => topic.status)).toEqual([
-      "active",
-      "review",
     ]);
   });
 });

@@ -21,9 +21,11 @@ import {
   PlusIcon,
   ChevronDownIcon,
 } from "lucide-react";
+import * as Schema from "effect/Schema";
 import { createContext, type ReactNode, use, useState } from "react";
 
 import { useComposerHandleContext } from "../../composerHandleContext";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { cn } from "../../lib/utils";
 import { useThreadShell } from "../../state/entities";
 import {
@@ -51,7 +53,6 @@ import {
   questionPrompts,
   topicCounts,
   topicSections,
-  topicStartsExpanded,
   topicSummary,
 } from "./ledger.logic";
 import { TopicStatusBadge, TopicStatusIcon } from "./ledgerPresentation";
@@ -202,6 +203,10 @@ function LedgerOffState(props: {
   );
 }
 
+/** Topics start folded; the ones the user opens stay open across threads and restarts. */
+const OpenTopicIds = Schema.Array(Schema.String);
+const NO_OPEN_TOPICS: ReadonlyArray<string> = [];
+
 function LedgerOnView(props: {
   readonly ledger: LedgerDocument;
   readonly title: string;
@@ -213,6 +218,15 @@ function LedgerOnView(props: {
   const [open, setOpen] = useState({ working: true, needs: true, topics: true, done: false });
   const toggle = (section: keyof typeof open) =>
     setOpen((current) => ({ ...current, [section]: !current[section] }));
+  const [openTopics, setOpenTopics] = useLocalStorage(
+    `t3code.ledgerOpenTopics.${ledger.threadId}`,
+    NO_OPEN_TOPICS,
+    OpenTopicIds,
+  );
+  const toggleTopic = (id: string) =>
+    setOpenTopics((current) =>
+      current.includes(id) ? current.filter((other) => other !== id) : [...current, id],
+    );
   const showClosed = view === "all";
   const needs = needsYou(ledger);
   const live = liveTopics(ledger);
@@ -322,6 +336,8 @@ function LedgerOnView(props: {
                       topic={topic}
                       showClosed={showClosed}
                       tasks={topic.id === tasksTopic ? ledger.liveTasks : undefined}
+                      expanded={openTopics.includes(topic.id)}
+                      onToggle={() => toggleTopic(topic.id)}
                     />
                   ))}
                 </div>
@@ -337,7 +353,13 @@ function LedgerOnView(props: {
               >
                 <div className="flex flex-col gap-0.5">
                   {closed.map((topic) => (
-                    <TopicGroup key={topic.id} topic={topic} showClosed={showClosed} />
+                    <TopicGroup
+                      key={topic.id}
+                      topic={topic}
+                      showClosed={showClosed}
+                      expanded={openTopics.includes(topic.id)}
+                      onToggle={() => toggleTopic(topic.id)}
+                    />
                   ))}
                 </div>
               </LedgerSection>
@@ -505,12 +527,15 @@ function TopicGroup({
   topic,
   showClosed,
   tasks,
+  expanded,
+  onToggle,
 }: {
   topic: LedgerTopic;
   showClosed: boolean;
   tasks?: ReadonlyArray<LedgerLiveTask> | undefined;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
-  const [expanded, setExpanded] = useState(() => topicStartsExpanded(topic));
   const [revealClosed, setRevealClosed] = useState(false);
   const [decidedShown, setDecidedShown] = useState(DECIDED_SHOWN);
   const counts = topicCounts(topic);
@@ -525,7 +550,7 @@ function TopicGroup({
       <button
         type="button"
         aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
         className="flex min-h-8.5 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 text-left hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <TopicStatusIcon status={topic.status} className="size-3.5" />
