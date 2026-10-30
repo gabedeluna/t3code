@@ -219,3 +219,18 @@ export function closedItemNote(item: LedgerItem): string | null {
   if (item.closedTurn === undefined) return item.note;
   return `Turn ${item.closedTurn}: ${item.note}`;
 }
+
+/** What an open question's buttons put in the composer. Never sent: the user finishes and sends it. */
+export function questionPrompts(item: LedgerItem) {
+  const asked = `Ledger question ${item.id}: "${item.text}"`;
+  return {
+    answer: `${asked}\nMy answer: `,
+    recommended:
+      item.rec === undefined
+        ? undefined
+        : `${asked}\nMy answer: go with your recommendation ("${item.rec}")`,
+    explain: `${asked}\nExplain it more before I answer: what it decides, the options, and ${
+      item.rec === undefined ? "which you'd pick" : "why you recommend that"
+    }.`,
+  };
+}

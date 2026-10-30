@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 import "~/index.css";
+import { ComposerHandleContext, type ComposerHandleRef } from "../../composerHandleContext";
 import { render } from "../../../test/render";
 import { BUSY_LEDGER, OFF_LEDGER, SETTLED_LEDGER } from "./ledgerFixtures";
 import { LedgerPanel } from "./ThreadLedgerPanel";
@@ -32,6 +33,30 @@ describe("LedgerPanel", () => {
     const topics = screen.getByRole("region", { name: "Topics" });
     await expect.element(topics.getByText("Working now · 1/3")).toBeVisible();
     await expect.element(topics.getByText("Add slot claims")).toBeVisible();
+  });
+
+  it("puts a question in the composer to answer, take the recommendation, or explain", async () => {
+    const insertTextAtEnd = vi.fn(() => true);
+    const composer = {
+      current: { insertTextAtEnd, focusAtEnd: vi.fn(), readSnapshot: () => ({ value: "" }) },
+    } as unknown as ComposerHandleRef;
+    await using screen = await render(
+      <ComposerHandleContext value={composer}>{panel()}</ComposerHandleContext>,
+    );
+
+    const needs = screen.getByRole("region", { name: "Needs you" });
+    const unrecommended = needs.getByRole("listitem").filter({ hasText: "Was OBS" });
+    await expect.element(unrecommended.getByRole("button", { name: "Answer" })).toBeVisible();
+    await expect
+      .element(unrecommended.getByRole("button", { name: "Use recommended" }))
+      .not.toBeInTheDocument();
+
+    const recommended = needs.getByRole("listitem").filter({ hasText: "Start milestone 1" });
+    await recommended.getByRole("button", { name: "Use recommended" }).click();
+    expect(insertTextAtEnd).toHaveBeenLastCalledWith(
+      'Ledger question q4: "Start milestone 1 now, or re-time the horde first?"\nMy answer: go with your recommendation ("Re-time the horde first.")',
+      { ensureLeadingBoundary: true },
+    );
   });
 
   it("lays out a busy ledger as the mockup does", async () => {

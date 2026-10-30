@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { useComposerHandleContext } from "../../composerHandleContext";
 import { cn } from "../../lib/utils";
 import { useThreadShell } from "../../state/entities";
 import {
@@ -35,6 +36,7 @@ import { buildThreadRouteParams } from "../../threadRoutes";
 import { Button } from "../ui/button";
 import { CollapsibleSectionHeader } from "../ui/collapsible-section-header";
 import { ScrollArea } from "../ui/scroll-area";
+import { toastManager } from "../ui/toast";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import {
   closedItemNote,
@@ -46,6 +48,7 @@ import {
   liveTaskProgress,
   liveTopics,
   needsYou,
+  questionPrompts,
   topicCounts,
   topicSections,
   topicStartsExpanded,
@@ -434,8 +437,45 @@ function NeedRow({ item, topic }: { item: LedgerItem; topic: LedgerTopic }) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium leading-4.5 text-foreground/90">{item.text}</span>
         <span className="text-2xs text-muted-foreground">{meta}</span>
+        {question ? <QuestionActions item={item} /> : null}
       </span>
     </li>
+  );
+}
+
+/** Puts the question in the composer, for the user to answer, take the recommendation, or ask more. */
+function QuestionActions({ item }: { item: LedgerItem }) {
+  const composerRef = useComposerHandleContext();
+  const { answer, recommended, explain } = questionPrompts(item);
+  const addToChat = (text: string) => {
+    const composer = composerRef?.current;
+    const lead = composer?.readSnapshot().value.trim() ? "\n\n" : "";
+    if (!composer?.insertTextAtEnd(`${lead}${text}`, { ensureLeadingBoundary: true })) {
+      toastManager.add({
+        type: "error",
+        title: "Unable to add to chat",
+        description: composer
+          ? "The chat isn't ready to accept input right now."
+          : "Open this thread's chat and try again.",
+      });
+      return;
+    }
+    composer.focusAtEnd();
+  };
+  return (
+    <span className="flex flex-wrap gap-1 pt-1">
+      {recommended === undefined ? null : (
+        <Button size="micro" variant="outline" onClick={() => addToChat(recommended)}>
+          Use recommended
+        </Button>
+      )}
+      <Button size="micro" variant="outline" onClick={() => addToChat(answer)}>
+        Answer
+      </Button>
+      <Button size="micro" variant="ghost-muted" onClick={() => addToChat(explain)}>
+        Explain
+      </Button>
+    </span>
   );
 }
 
@@ -561,6 +601,7 @@ function TopicItemRow({ item }: { item: LedgerItem }) {
           {item.text}
         </span>
         {detail ? <span className="text-2xs text-muted-foreground">{detail}</span> : null}
+        {item.kind === "question" && item.state === "open" ? <QuestionActions item={item} /> : null}
       </span>
       {item.kind === "todo" && !closed ? (
         <span className="shrink-0 text-2xs leading-4.5 text-muted-foreground">
