@@ -1,4 +1,4 @@
-import type { LedgerDocument, LedgerLiveTask, LedgerTopic } from "@t3tools/contracts";
+import type { LedgerDocument, LedgerItem, LedgerLiveTask, LedgerTopic } from "@t3tools/contracts";
 
 import {
   LEDGER_TOPIC_STATUSES,
@@ -187,6 +187,33 @@ export const TASK_TOPIC_SCHEMA = {
   additionalProperties: false,
   required: ["topic"],
   properties: { topic: text },
+} as const;
+
+/** For a Director's copies of a worker's questions, once the worker's own ledger settles them. */
+export const RELAY_SYSTEM =
+  "A worker thread just settled some of its questions. Return the Director's open questions that this settles: the same question in other words, or one the answer makes moot. Usually none do. Each note starts with the worker's name and says how it was settled.";
+
+export const relayPrompt = (
+  worker: string,
+  settled: ReadonlyArray<LedgerItem>,
+  open: ReadonlyArray<LedgerItem>,
+) =>
+  [
+    `SETTLED IN ${worker}\n${settled.map((q) => `- ${q.text} -> ${q.note ?? "answered"}`).join("\n")}`,
+    `THE DIRECTOR'S OPEN QUESTIONS\n${open.map((q) => `${q.id}: ${q.text}`).join("\n")}`,
+  ].join("\n\n");
+
+export const RELAY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["closes"],
+  properties: {
+    closes: array({ item: text, state: { enum: ["answered"] }, note: text }, [
+      "item",
+      "state",
+      "note",
+    ]),
+  },
 } as const;
 
 export const SWEEP_REPLY_SCHEMA = {

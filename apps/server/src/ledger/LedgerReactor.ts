@@ -26,13 +26,18 @@ import {
   applyScribeReply,
   draftOf,
   filedLiveTasks,
+  openQuestions,
   readScribeReply,
+  settledQuestions,
 } from "./ledgerDocument.ts";
 import {
+  RELAY_SCHEMA,
+  RELAY_SYSTEM,
   SWEEP_REPLY_SCHEMA,
   TASK_TOPIC_SCHEMA,
   TASK_TOPIC_SYSTEM,
   TURN_REPLY_SCHEMA,
+  relayPrompt,
   scribeSystemPrompt,
   sweepPrompt,
   taskTopicPrompt,
@@ -176,7 +181,7 @@ const make = Effect.gen(function* () {
       prompt: sweepPrompt(doc, recent.slice(-every), user),
       schema: SWEEP_REPLY_SCHEMA,
     });
-    yield* record(
+    const after = yield* record(
       threadId,
       outcome,
       (draft, reply) =>
@@ -186,6 +191,46 @@ const make = Effect.gen(function* () {
         draft.sweptTurn = draft.turns;
         delete draft.scribing;
       },
+    );
+    yield* relaySettled(threadId, doc, after);
+  });
+
+  // A Director keeps copies of the questions it passed on from its workers. When a worker's own
+  // ledger settles one, the copy closes too, so the Director never holds a stale ask.
+  const relaySettled = Effect.fnUntraced(function* (
+    worker: ThreadId,
+    before: LedgerDocument,
+    after: LedgerDocument,
+  ) {
+    const settled = settledQuestions(before, after);
+    if (settled.length === 0) return;
+    const launcher = yield* launchers.launcherOf(worker);
+    if (Option.isNone(launcher)) return;
+    const director = yield* store.get(launcher.value);
+    const open = openQuestions(director);
+    if (!director.enabled || open.length === 0) return;
+    const title = yield* projections.getThread(worker).pipe(
+      Effect.map((thread) => thread.title),
+      Effect.orElseSucceed(() => "a worker"),
+    );
+    const config = yield* settings;
+    const outcome = yield* callModel(launcher.value, {
+      model: config.ledgerTurnModel,
+      systemPrompt: RELAY_SYSTEM,
+      prompt: relayPrompt(title, settled, open),
+      schema: RELAY_SCHEMA,
+    });
+    const asked = new Set(open.map((q) => q.id));
+    yield* record(
+      launcher.value,
+      outcome,
+      (draft, reply) =>
+        applyScribeReply(
+          draft,
+          { closes: (reply.closes ?? []).filter((close) => asked.has(close.item)) },
+          { turn: draft.turns, sweep: false, source: "user" },
+        ),
+      () => {},
     );
   });
 
@@ -222,6 +267,7 @@ const make = Effect.gen(function* () {
         if (draft.turns - draft.sweptTurn < every) delete draft.scribing;
       },
     );
+    yield* relaySettled(threadId, doc, after);
     if (after.enabled && after.turns - after.sweptTurn >= every) {
       yield* sweep(threadId, every, config.ledgerUserName, config.ledgerSweepModel);
     }

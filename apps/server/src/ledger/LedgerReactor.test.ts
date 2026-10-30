@@ -25,7 +25,8 @@ import * as Orchestrator from "../orchestration-v2/Orchestrator.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { at, item, ledgerThreadId, message, run, runIdOf, thread } from "./ledger.testkit.ts";
-import { SWEEP_REPLY_SCHEMA } from "./ledgerPrompts.ts";
+import { seededLedger } from "./ledgerDocument.ts";
+import { RELAY_SCHEMA, SWEEP_REPLY_SCHEMA } from "./ledgerPrompts.ts";
 import * as LedgerLaunchers from "./LedgerLaunchers.ts";
 import * as LedgerReactor from "./LedgerReactor.ts";
 import * as LedgerStore from "./LedgerStore.ts";
@@ -338,6 +339,89 @@ describe("LedgerReactor", () => {
       assert.deepStrictEqual(
         doc.topics.flatMap((t) => t.items.map((i) => i.text)),
         ["Ship on Friday"],
+      );
+    }).pipe(Effect.provide(layerFor(h)));
+  });
+
+  it.effect("closes the Director's copy of a question once its worker settles it", () => {
+    const h = harness();
+    const directorId = ThreadId.make("thread:director");
+    h.world.threads.set(ledgerThreadId, thread({ id: ledgerThreadId, title: "CI/CD study" }));
+    h.turnReply = (call) =>
+      call.schema === RELAY_SCHEMA
+        ? {
+            closes: [
+              { item: "q1", state: "answered", note: "CI/CD study: Gabe picked A" },
+              { item: "t1", state: "answered", note: "not a question it was shown" },
+            ],
+          }
+        : {
+            closes: /Turn 2 message/.test(call.prompt)
+              ? [{ item: "q1", state: "answered", note: "turn 2: Gabe picked A" }]
+              : [],
+            statuses: [],
+            new_topics: [],
+            adds: [],
+            revisions: [],
+          };
+    const open = (kind: "question" | "todo", text: string) => ({
+      kind,
+      state: "open" as const,
+      text,
+    });
+    const now = "2026-10-30T00:00:00.000Z";
+    return Effect.gen(function* () {
+      const { reactor, store } = yield* services;
+      const launchers = yield* LedgerLaunchers.LedgerLaunchers;
+      yield* store.update(ledgerThreadId, (doc) =>
+        seededLedger(
+          doc,
+          [{ name: "CI/CD", status: "shaped", items: [open("question", "Which option?")] }],
+          now,
+        ),
+      );
+      yield* store.update(directorId, (doc) =>
+        seededLedger(
+          doc,
+          [
+            {
+              name: "Launch",
+              status: "active",
+              items: [
+                open("question", "Pick a CI/CD option"),
+                open("question", "Ship tonight?"),
+                open("todo", "Deploy"),
+              ],
+            },
+          ],
+          now,
+        ),
+      );
+      yield* launchers.record(directorId, ledgerThreadId);
+
+      addTurn(h, 1);
+      yield* reactor.process(finished(1));
+      assert.strictEqual(
+        h.calls.length,
+        1,
+        "a turn that settles nothing asks nothing of the Director",
+      );
+
+      addTurn(h, 2);
+      yield* reactor.process(finished(2));
+      assert.strictEqual(h.calls.length, 3);
+      assert.match(
+        h.calls[2]!.prompt,
+        /SETTLED IN CI\/CD study\n- Which option\? -> turn 2: Gabe picked A/,
+      );
+      const director = yield* store.get(directorId);
+      assert.deepStrictEqual(
+        director.topics[0]!.items.map((i) => [i.id, i.state, i.note]),
+        [
+          ["q1", "answered", "CI/CD study: Gabe picked A"],
+          ["q2", "open", undefined],
+          ["t1", "open", undefined],
+        ],
       );
     }).pipe(Effect.provide(layerFor(h)));
   });

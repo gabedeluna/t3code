@@ -26,6 +26,8 @@ export class LedgerLaunchers extends Context.Service<
     readonly record: (launcher: ThreadId, worker: ThreadId) => Effect.Effect<void>;
     /** Oldest first. */
     readonly workersOf: (launcher: ThreadId) => Effect.Effect<ReadonlyArray<ThreadId>>;
+    /** The thread that launched this one, if one did. */
+    readonly launcherOf: (worker: ThreadId) => Effect.Effect<Option.Option<ThreadId>>;
     /** Drops a deleted thread, as a launcher and as a worker. */
     readonly forget: (threadId: ThreadId) => Effect.Effect<void>;
     /** Each launcher whose workers changed. */
@@ -100,6 +102,13 @@ const make = Effect.gen(function* () {
   const workersOf: LedgerLaunchers["Service"]["workersOf"] = (launcher) =>
     lock.withPermits(1)(Effect.map(read, (links) => links.get(launcher) ?? []));
 
+  const launcherOf: LedgerLaunchers["Service"]["launcherOf"] = (worker) =>
+    lock.withPermits(1)(
+      Effect.map(read, (links) =>
+        Option.fromNullishOr([...links].find(([, workers]) => workers.includes(worker))?.[0]),
+      ),
+    );
+
   const forget: LedgerLaunchers["Service"]["forget"] = (threadId) =>
     lock.withPermits(1)(
       Effect.gen(function* () {
@@ -121,6 +130,7 @@ const make = Effect.gen(function* () {
   return LedgerLaunchers.of({
     record,
     workersOf,
+    launcherOf,
     forget,
     changes: Stream.fromPubSub(changed),
   });

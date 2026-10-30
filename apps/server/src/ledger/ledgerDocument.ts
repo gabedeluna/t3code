@@ -479,6 +479,17 @@ export function itemsToCheck(doc: LedgerDocument) {
 export const liveTopics = (doc: LedgerDocument) =>
   doc.topics.filter((t) => !CLOSED_TOPIC.has(t.status));
 
+export const openQuestions = (doc: LedgerDocument): ReadonlyArray<LedgerItem> =>
+  doc.topics.flatMap((t) => t.items.filter((i) => i.kind === "question" && i.state === "open"));
+
+/** Questions open before and answered after: what a worker's turn settled, for its Director. */
+export function settledQuestions(before: LedgerDocument, after: LedgerDocument) {
+  const wasOpen = new Set(openQuestions(before).map((q) => q.id));
+  return after.topics.flatMap((t) =>
+    t.items.filter((i) => i.kind === "question" && i.state === "answered" && wasOpen.has(i.id)),
+  );
+}
+
 const TASK_MARK = { pending: "todo", in_progress: "doing", completed: "done" } as const;
 
 /** Live topics with what is still open and what stands; closed items and finished topics as counts. */
