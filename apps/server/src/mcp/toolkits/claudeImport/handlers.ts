@@ -1,4 +1,5 @@
 import {
+  LedgerSeedTopic,
   OrchestratorMcpFailure,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -9,6 +10,7 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import * as LedgerLaunchers from "../../../ledger/LedgerLaunchers.ts";
 import * as LedgerStore from "../../../ledger/LedgerStore.ts";
@@ -36,6 +38,18 @@ const DEFAULT_CLAUDE_INSTANCE = ProviderInstanceId.make("claudeAgent");
 
 const invalid = (message: string) =>
   new OrchestratorMcpFailure({ code: "invalid_request", message });
+
+const decodeLedger = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Array(LedgerSeedTopic)),
+);
+
+// A long session's ledger runs to hundreds of KB: read from disk, it never passes through a model.
+const readLedgerFile = (path: string) =>
+  FileSystem.FileSystem.pipe(
+    Effect.flatMap((fileSystem) => fileSystem.readFileString(path)),
+    Effect.flatMap(decodeLedger),
+    Effect.mapError(() => invalid(`ledgerFile ${path} is not a readable ledger.`)),
+  );
 
 const copyFailure = (
   error:
@@ -76,6 +90,8 @@ export const layer = McpToolAccess.toLayer(ClaudeImportToolkit, {
           "Importing a Claude Code session reads this machine's transcripts; it needs a full-access/default calling thread or a full-access client.",
         );
         const { caller } = context;
+        const ledger =
+          input.ledgerFile === undefined ? undefined : yield* readLedgerFile(input.ledgerFile);
         const fileSystem = yield* FileSystem.FileSystem;
         const projectId = yield* resolveProjectId(context, input.projectId);
         const project = yield* Project.ProjectService.pipe(
@@ -194,8 +210,8 @@ export const layer = McpToolAccess.toLayer(ClaudeImportToolkit, {
         );
         const thread = result.projection.thread;
         yield* LedgerLaunchers.recordLaunch(caller?.id, thread.id);
-        if (input.ledger !== undefined && input.ledger.length > 0)
-          yield* LedgerStore.seedThreadLedger(thread.id, input.ledger);
+        if (ledger !== undefined && ledger.length > 0)
+          yield* LedgerStore.seedThreadLedger(thread.id, ledger);
         return {
           threadId: thread.id,
           link: McpInvocationContext.threadLinkFor(scope, thread.id),

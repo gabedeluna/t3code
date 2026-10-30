@@ -275,7 +275,7 @@ it.effect("binds an existing project worktree and copies the session into its fo
 );
 
 it.effect(
-  "refuses an open session, a non-Claude instance, a Scratch project and a limited caller",
+  "refuses an open session, a non-Claude instance, a Scratch project, a limited caller and a bad ledger",
   () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -308,6 +308,16 @@ it.effect(
           sessionId: "6e3d9b52-8c4f-4a7b-8d2e-3f5a7b9c1d2e",
         });
         assert.equal(missing?.code, "invalid_request");
+
+        const fileSystem = yield* FileSystem.FileSystem;
+        const ledgerFile = `${quiet.configDir}/ledger.json`;
+        yield* fileSystem.writeFileString(ledgerFile, '[{"name":"Shop","status":"busy"}]');
+        const badLedger = yield* callImport(harness({ ...quiet, launched }), {
+          ...params,
+          ledgerFile,
+        });
+        assert.equal(badLedger?.code, "invalid_request");
+        assert.include(badLedger?.message as string, "ledgerFile");
 
         assert.lengthOf(launched, 0);
         assert.deepEqual(yield* quiet.copiesIn(quiet.workspaceRoot), []);

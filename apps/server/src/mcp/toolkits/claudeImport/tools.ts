@@ -1,5 +1,4 @@
 import {
-  LedgerSeedTopic,
   ModelSelection,
   OrchestratorMcpFailure,
   ProjectId,
@@ -48,9 +47,10 @@ const ThreadImportClaudeTool = Tool.make("t3_thread_import_claude", {
         description: "A Claude instance. Default: claudeAgent, with the session's last model.",
       }),
     ),
-    ledger: Schema.optional(
-      Schema.Array(LedgerSeedTopic).annotate({
-        description: "The session's own ledger, carried over: switches this thread's ledger on.",
+    ledgerFile: Schema.optional(
+      TrimmedNonEmptyString.annotate({
+        description:
+          "A JSON file on this machine holding the session's own ledger, carried over: switches this thread's ledger on.",
       }),
     ),
   }),
