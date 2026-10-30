@@ -160,6 +160,7 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(VoiceInputIpc.getStatus);
   yield* ipc.handle(VoiceInputIpc.setApiKey);
   yield* ipc.handle(VoiceInputIpc.transcribe);
+  yield* ipc.handlePort(VoiceInputIpc.openStream);
   for (const previewMethod of PreviewIpc.methods) {
     // Explicit types preserve the error/service union of these heterogeneous preview methods.
     yield* ipc.handle<

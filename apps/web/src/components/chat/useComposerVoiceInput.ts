@@ -7,16 +7,19 @@ import { useStableCallback } from "../../hooks/useStableCallback";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { registerCommands } from "../../shortcuts/dispatcher";
 import { environmentProjects } from "../../state/projects";
+import type { ComposerDictationPreview } from "../composerDictationPreview";
+import {
+  ComposerStreamingSession,
+  type StreamingVoiceRequestOptions,
+} from "../../voiceInput/composerStreamingSession";
 import {
   ComposerVoiceSession,
   type ComposerVoiceError,
   type ComposerVoiceTarget,
 } from "../../voiceInput/composerVoiceSession";
-import {
-  getDesktopVoiceInputBridge,
-  type DesktopVoiceRequestOptions,
-} from "../../voiceInput/desktopVoiceTranscriber";
-import { registerVoiceHoldTarget } from "../../voiceInput/voiceHoldKey";
+import { getDesktopVoiceInputBridge } from "../../voiceInput/desktopVoiceTranscriber";
+import { openPcmCapture } from "../../voiceInput/pcmCapture";
+import { registerVoiceHoldTarget, type VoiceHoldTarget } from "../../voiceInput/voiceHoldKey";
 import { resolveVoiceKeyterms } from "../../voiceInput/voiceKeyterms";
 import { toastManager } from "../ui/toast";
 
@@ -26,7 +29,7 @@ export const VOICE_INPUT_SETTINGS_SECTION_ID = "voice-input";
 const NO_SUBSCRIPTION = () => () => {};
 const IDLE_PHASE = (): VoiceInputPhase => "idle";
 
-function readVoiceRequestOptions(): DesktopVoiceRequestOptions {
+function readVoiceRequestOptions(): StreamingVoiceRequestOptions {
   const settings = getClientSettings();
   // Recent projects first, so the cap drops the stale ones.
   const projectNames = appAtomRegistry
@@ -35,7 +38,64 @@ function readVoiceRequestOptions(): DesktopVoiceRequestOptions {
     .map((project) => project.title);
   return {
     languageCode: settings.voiceInputLanguage === "auto" ? null : settings.voiceInputLanguage,
-    keyterms: resolveVoiceKeyterms(settings.voiceInputKeyterms, projectNames).keyterms,
+    keyterms: resolveVoiceKeyterms(settings.voiceInputKeyterms, projectNames, "batch").keyterms,
+    realtimeKeyterms: resolveVoiceKeyterms(settings.voiceInputKeyterms, projectNames, "realtime")
+      .keyterms,
+  };
+}
+
+type ComposerDictationSession = ComposerVoiceSession | ComposerStreamingSession;
+
+/**
+ * Batch and streaming sessions side by side. The mode setting picks one when dictation starts;
+ * until it ends, every input goes to that one.
+ */
+function combineSessions(
+  batch: ComposerVoiceSession,
+  streaming: ComposerStreamingSession,
+): {
+  readonly current: () => ComposerDictationSession;
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly getPhase: () => VoiceInputPhase;
+  readonly holdTarget: (holdKey: () => string | null) => VoiceHoldTarget;
+  readonly dispose: () => void;
+} {
+  const current = () => {
+    if (streaming.isBusy()) return streaming;
+    if (batch.isBusy()) return batch;
+    return getClientSettings().voiceInputMode === "batch" ? batch : streaming;
+  };
+  return {
+    current,
+    subscribe: (listener) => {
+      const unsubscribeBatch = batch.subscribe(listener);
+      const unsubscribeStreaming = streaming.subscribe(listener);
+      return () => {
+        unsubscribeBatch();
+        unsubscribeStreaming();
+      };
+    },
+    getPhase: () => (streaming.isBusy() ? streaming.getPhase() : batch.getPhase()),
+    holdTarget: (holdKey) => {
+      const targets = {
+        batch: batch.holdTarget(holdKey),
+        streaming: streaming.holdTarget(holdKey),
+      };
+      let held: VoiceHoldTarget | null = null;
+      return {
+        holdKey,
+        press: (atMs) => {
+          held = current() === streaming ? targets.streaming : targets.batch;
+          return held.press(atMs);
+        },
+        release: (atMs) => held?.release(atMs),
+        abort: () => held?.abort(),
+      };
+    },
+    dispose: () => {
+      batch.dispose();
+      streaming.dispose();
+    },
   };
 }
 
@@ -55,9 +115,11 @@ export interface ComposerVoiceInput {
 export function useComposerVoiceInput(input: {
   readonly enabled: boolean;
   readonly readTarget: () => ComposerVoiceTarget | null;
+  readonly showPreview: (preview: ComposerDictationPreview | null) => void;
 }): ComposerVoiceInput {
   const navigate = useNavigate();
   const readTarget = useStableCallback(input.readTarget);
+  const showPreview = useStableCallback(input.showPreview);
   const showError = useStableCallback((error: ComposerVoiceError) => {
     if (error.kind === "unplaced-transcript") {
       const id = toastManager.add({
@@ -93,12 +155,22 @@ export function useComposerVoiceInput(input: {
   const [session] = useState(() => {
     const bridge = getDesktopVoiceInputBridge();
     return bridge
-      ? new ComposerVoiceSession({
-          bridge,
-          readTarget,
-          readRequestOptions: readVoiceRequestOptions,
-          onError: showError,
-        })
+      ? combineSessions(
+          new ComposerVoiceSession({
+            bridge,
+            readTarget,
+            readRequestOptions: readVoiceRequestOptions,
+            onError: showError,
+          }),
+          new ComposerStreamingSession({
+            bridge,
+            readTarget,
+            readRequestOptions: readVoiceRequestOptions,
+            showPreview,
+            onError: showError,
+            openCapture: openPcmCapture,
+          }),
+        )
       : null;
   });
   const activeSession = input.enabled ? session : null;
@@ -118,15 +190,16 @@ export function useComposerVoiceInput(input: {
       {
         "composer.dictate": (event) => {
           event.preventDefault();
-          if (!event.repeat) void activeSession.toggle();
+          if (!event.repeat) void activeSession.current().toggle();
         },
       },
       {
         capture: true,
         onKeyDown: (event) => {
-          if (event.key !== "Escape" || !activeSession.isBusy()) return false;
+          const current = activeSession.current();
+          if (event.key !== "Escape" || !current.isBusy()) return false;
           event.preventDefault();
-          activeSession.cancel();
+          current.cancel();
           return true;
         },
       },
@@ -142,6 +215,6 @@ export function useComposerVoiceInput(input: {
     available: activeSession !== null,
     phase,
     busy: phase === "preparing" || phase === "recording" || phase === "transcribing",
-    toggle: () => void activeSession?.toggle(),
+    toggle: () => void activeSession?.current().toggle(),
   };
 }

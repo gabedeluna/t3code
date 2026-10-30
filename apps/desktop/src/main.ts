@@ -42,6 +42,7 @@ import * as DesktopClerk from "./app/DesktopClerk.ts";
 import * as DesktopCliCommand from "./app/DesktopCliCommand.ts";
 import * as ElevenLabsClient from "./voiceInput/ElevenLabsClient.ts";
 import * as ElevenLabsKeyStore from "./voiceInput/ElevenLabsKeyStore.ts";
+import * as ElevenLabsRealtime from "./voiceInput/ElevenLabsRealtime.ts";
 import * as DesktopApplicationMenu from "./window/DesktopApplicationMenu.ts";
 import * as DesktopAssets from "./app/DesktopAssets.ts";
 import * as DesktopBackendConfiguration from "./backend/DesktopBackendConfiguration.ts";
@@ -212,6 +213,7 @@ const layerDesktopApplication = Layer.mergeAll(
   DesktopLinuxUrlHandler.layer,
   DesktopCliCommand.layer,
   ElevenLabsClient.layer,
+  ElevenLabsRealtime.layer,
   layerDesktopSsh,
 ).pipe(
   Layer.provideMerge(layerDesktopSnapShot),

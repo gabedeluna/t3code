@@ -51,8 +51,10 @@ import { PullRequestMergeMethod } from "./pullRequest.ts";
 import {
   DEFAULT_VOICE_INPUT_HOLD_KEY,
   DEFAULT_VOICE_INPUT_LANGUAGE,
+  DEFAULT_VOICE_INPUT_MODE,
   VoiceInputHoldKey,
   VoiceInputLanguage,
+  VoiceInputMode,
 } from "./voiceInput.ts";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
@@ -534,6 +536,9 @@ export const ClientSettingsSchema = Schema.Struct({
   // Null turns hold-to-talk off.
   voiceInputHoldKey: Schema.NullOr(VoiceInputHoldKey).pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_VOICE_INPUT_HOLD_KEY)),
+  ),
+  voiceInputMode: VoiceInputMode.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_VOICE_INPUT_MODE)),
   ),
   wordWrap: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   // Opt-in TeX typesetting in rendered Markdown. Off keeps math parsing and
@@ -1782,6 +1787,7 @@ export const ClientSettingsPatch = Schema.Struct({
   voiceInputKeyterms: Schema.optionalKey(Schema.Array(Schema.String)),
   voiceInputLanguage: Schema.optionalKey(VoiceInputLanguage),
   voiceInputHoldKey: Schema.optionalKey(Schema.NullOr(VoiceInputHoldKey)),
+  voiceInputMode: Schema.optionalKey(VoiceInputMode),
   wordWrap: Schema.optionalKey(Schema.Boolean),
   mathRenderingEnabled: Schema.optionalKey(Schema.Boolean),
 });

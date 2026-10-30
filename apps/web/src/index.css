@@ -2438,6 +2438,12 @@ code {
   pointer-events: none;
 }
 
+.composer-dictation-preview {
+  color: var(--muted-foreground);
+  user-select: none;
+  pointer-events: none;
+}
+
 /* Selected chips (node selection from arrowing into or clicking a chip). */
 .composer-tiptap .ProseMirror-selectednode {
   outline: 2px solid var(--ring);

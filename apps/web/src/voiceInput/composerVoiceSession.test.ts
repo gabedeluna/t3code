@@ -64,6 +64,9 @@ function setup(options: {
       requests.push(request);
       return options.respond?.(request) ?? Promise.resolve({ _tag: "transcribed", text: "" });
     },
+    openStream: () => {
+      throw new Error("Batch dictation does not stream.");
+    },
   };
   const readTarget = (): ComposerVoiceTarget => ({
     ownerKey: draft.ownerKey,

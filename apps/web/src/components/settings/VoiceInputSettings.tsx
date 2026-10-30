@@ -1,7 +1,10 @@
 import {
   DEFAULT_VOICE_INPUT_HOLD_KEY,
   DEFAULT_VOICE_INPUT_LANGUAGE,
+  DEFAULT_VOICE_INPUT_MODE,
   VOICE_INPUT_MAX_KEYTERMS,
+  VOICE_INPUT_MAX_REALTIME_KEYTERM_LENGTH,
+  VOICE_INPUT_MAX_REALTIME_KEYTERMS,
 } from "@t3tools/contracts";
 import { useState } from "react";
 
@@ -22,6 +25,7 @@ import {
 import { VOICE_INPUT_SETTINGS_SECTION_ID } from "../chat/useComposerVoiceInput";
 import { Button } from "../ui/button";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import { SecretInput } from "./SecretInput";
@@ -116,6 +120,33 @@ function ApiKeyRow(props: { readonly bridge: DesktopVoiceInputBridge }) {
             </Button>
           ) : null}
         </div>
+      }
+    />
+  );
+}
+
+function ModeRow() {
+  const mode = useClientSettings((settings) => settings.voiceInputMode);
+  return (
+    <SettingsRow
+      {...searchableSetting("voice-input-mode")}
+      description="Words appear as you speak, faded until ElevenLabs settles them. Off transcribes once you stop, which costs about half as much."
+      resetAction={
+        mode !== DEFAULT_VOICE_INPUT_MODE ? (
+          <SettingResetButton
+            label="live dictation"
+            onClick={() => void updateClientSettings({ voiceInputMode: DEFAULT_VOICE_INPUT_MODE })}
+          />
+        ) : null
+      }
+      control={
+        <Switch
+          checked={mode === "streaming"}
+          onCheckedChange={(checked) =>
+            void updateClientSettings({ voiceInputMode: checked ? "streaming" : "batch" })
+          }
+          aria-label="Live dictation"
+        />
       }
     />
   );
@@ -251,6 +282,8 @@ function KeytermsRow() {
     .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .map((project) => project.title);
   const resolved = resolveVoiceKeyterms(editing, projectNames);
+  const live = useClientSettings((settings) => settings.voiceInputMode) === "streaming";
+  const realtime = resolveVoiceKeyterms(editing, projectNames, "realtime");
   const total = resolved.keyterms.length;
   const warning =
     resolved.omitted > 0
@@ -268,6 +301,11 @@ function KeytermsRow() {
           <p>
             {`${total} of ${VOICE_INPUT_MAX_KEYTERMS} keyterms: ${resolved.customCount} yours, ${resolved.projectCount} project names.`}
           </p>
+          {live ? (
+            <p>
+              {`Live dictation takes the first ${realtime.keyterms.length} of at most ${VOICE_INPUT_MAX_REALTIME_KEYTERMS}${realtime.tooLong > 0 ? `, skipping ${realtime.tooLong} over ${VOICE_INPUT_MAX_REALTIME_KEYTERM_LENGTH} characters` : ""}.`}
+            </p>
+          ) : null}
           {warning ? <p className="text-warning-foreground">{warning}</p> : null}
           {resolved.invalid.length > 0 ? (
             <p className="text-warning-foreground">
@@ -305,6 +343,7 @@ export function VoiceInputSettingsSection() {
   return (
     <SettingsSection id={VOICE_INPUT_SETTINGS_SECTION_ID} title="Voice input">
       <ApiKeyRow bridge={bridge} />
+      <ModeRow />
       <LanguageRow />
       <HoldKeyRow />
       <KeytermsRow />

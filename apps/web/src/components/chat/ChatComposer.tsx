@@ -926,6 +926,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const voiceInput = useComposerVoiceInput({
     enabled: !backgroundThread,
     readTarget: () => readVoiceTargetStable(),
+    showPreview: (preview) => composerEditorRef.current?.setDictationPreview(preview),
   });
   const sendDisabledReason =
     (voiceInput.busy ? "Finish dictating first." : null) ??

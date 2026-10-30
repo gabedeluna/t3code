@@ -203,16 +203,24 @@ ElevenLabs API key. Add it in **Settings → Chat → Voice input**. The key sta
 your system keychain on that computer.
 
 Click the microphone beside the attach button to start, and click it again to
-transcribe. Or hold **Right Ctrl** while T3 Code is focused and let go when you are
-done. `mod+shift+Space` also starts and stops dictation. Esc cancels. The text lands
-where your cursor was when you started and is never sent for you; send stays off
-until the transcript arrives. Recordings can be up to five minutes long.
+stop. Or hold **Right Ctrl** while T3 Code is focused and let go when you are
+done. `mod+shift+Space` also starts and stops dictation. Esc cancels and removes
+what that dictation typed. Words appear where your cursor was as you speak, faded
+until ElevenLabs settles each phrase; stopping settles the last one. Nothing is
+sent for you, and send stays off until dictation finishes. Dictation can run for
+up to five minutes.
+
+If the live connection fails, T3 Code transcribes the whole recording once you
+stop, so nothing you said is lost. Turn off **Live dictation** to always
+transcribe after you stop, which costs about half as much and shows no words
+until then.
 
 Under **Voice input** you can also choose the language (English by default), pick
 another key to hold or turn holding off, and list keyterms: names and jargon to
 spell your way, one per line. Your project names are added for you. ElevenLabs
 bills every request as at least 20 seconds once there are more than 100 keyterms,
-so T3 Code sends at most 100, yours first, and warns as the list gets close.
+so T3 Code sends at most 100, yours first, and warns as the list gets close. Live
+dictation takes only the first 50 and skips terms over 20 characters.
 
 Recordings go to ElevenLabs to be transcribed and are not kept by T3 Code.
 

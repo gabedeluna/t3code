@@ -277,6 +277,16 @@ contextBridge.exposeInMainWorld("desktopBridge", {
     setApiKey: (apiKey) => ipcRenderer.invoke(IpcChannels.VOICE_INPUT_SET_API_KEY_CHANNEL, apiKey),
     transcribe: (request) =>
       ipcRenderer.invoke(IpcChannels.VOICE_INPUT_TRANSCRIBE_CHANNEL, request),
+    openStream: (options, onEvent) => {
+      const { port1, port2 } = new MessageChannel();
+      port2.onmessage = (event) => onEvent(event.data);
+      ipcRenderer.postMessage(IpcChannels.VOICE_INPUT_OPEN_STREAM_CHANNEL, options, [port1]);
+      return {
+        sendAudio: (pcm) => port2.postMessage({ _tag: "audio", pcm }, [pcm]),
+        finish: () => port2.postMessage({ _tag: "finish" }),
+        close: () => port2.close(),
+      };
+    },
   },
   onUpdateState: (listener) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, state: unknown) => {

@@ -16,6 +16,9 @@ import { type ClientSettings, type QuitConfirmationMode, SnapShotShortcut } from
 import type { EditorId } from "./editor.ts";
 import type {
   DesktopVoiceInputStatus,
+  DesktopVoiceStream,
+  DesktopVoiceStreamEvent,
+  DesktopVoiceStreamOptions,
   DesktopVoiceTranscriptionRequest,
   DesktopVoiceTranscriptionResult,
 } from "./voiceInput.ts";
@@ -1133,6 +1136,11 @@ export interface DesktopBridge {
     transcribe: (
       request: DesktopVoiceTranscriptionRequest,
     ) => Promise<DesktopVoiceTranscriptionResult>;
+    /** Opens a Scribe v2 Realtime stream; events arrive until it finishes, fails or closes. */
+    openStream: (
+      options: DesktopVoiceStreamOptions,
+      onEvent: (event: DesktopVoiceStreamEvent) => void,
+    ) => DesktopVoiceStream;
   };
   webLinks: {
     setReady: (ready: boolean) => Promise<void>;

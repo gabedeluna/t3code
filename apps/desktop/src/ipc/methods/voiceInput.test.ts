@@ -6,7 +6,9 @@ import * as Ref from "effect/Ref";
 
 import * as ElevenLabsClient from "../../voiceInput/ElevenLabsClient.ts";
 import * as ElevenLabsKeyStore from "../../voiceInput/ElevenLabsKeyStore.ts";
-import { transcribe } from "./voiceInput.ts";
+import * as ElevenLabsRealtime from "../../voiceInput/ElevenLabsRealtime.ts";
+import type { DesktopIpcPort } from "../DesktopIpc.ts";
+import { openStream, transcribe } from "./voiceInput.ts";
 
 const request = {
   audio: new Uint8Array([1, 2, 3]),
@@ -82,6 +84,94 @@ describe("voiceInput.transcribe", () => {
             });
           }),
       );
+    }),
+  );
+});
+
+function fakePort() {
+  const posted: unknown[] = [];
+  const listeners: { message?: (message: { data: unknown }) => void; close?: () => void } = {};
+  const state = { started: false, closed: false };
+  const port: DesktopIpcPort = {
+    on: (event: "message" | "close", listener: never) => {
+      listeners[event] = listener;
+    },
+    postMessage: (message) => posted.push(message),
+    start: () => {
+      state.started = true;
+    },
+    close: () => {
+      state.closed = true;
+    },
+  };
+  return { port, posted, listeners, state };
+}
+
+const keyStoreWith = (storedKey: Option.Option<string>) =>
+  Layer.succeed(ElevenLabsKeyStore.ElevenLabsKeyStore, {
+    status: Effect.succeed({
+      apiKeyConfigured: Option.isSome(storedKey),
+      encryptionAvailable: true,
+    }),
+    get: Effect.succeed(storedKey),
+    set: () => Effect.succeed(true),
+  });
+
+describe("voiceInput.openStream", () => {
+  it.effect("reports a missing key on the port and closes it without connecting", () =>
+    Effect.gen(function* () {
+      const { port, posted, state } = fakePort();
+      let opened = 0;
+      yield* openStream.handler({ languageCode: "en", keyterms: [] }, port).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            keyStoreWith(Option.none()),
+            Layer.succeed(
+              ElevenLabsRealtime.ElevenLabsRealtime,
+              ElevenLabsRealtime.make(() => {
+                opened += 1;
+                return { send: () => undefined, close: () => undefined };
+              }),
+            ),
+          ),
+        ),
+      );
+      assert.deepStrictEqual(posted, [{ _tag: "failed", reason: "missing-key" }]);
+      assert.isTrue(state.closed);
+      assert.strictEqual(opened, 0);
+    }),
+  );
+
+  it.effect("streams port audio to ElevenLabs and closes the port after the last commit", () =>
+    Effect.gen(function* () {
+      const { port, posted, listeners, state } = fakePort();
+      const sent: string[] = [];
+      let handlers: ElevenLabsRealtime.RealtimeSocketHandlers | null = null;
+      yield* openStream.handler({ languageCode: "en", keyterms: [] }, port).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            keyStoreWith(Option.some("sk_live")),
+            Layer.succeed(
+              ElevenLabsRealtime.ElevenLabsRealtime,
+              ElevenLabsRealtime.make((_url, _apiKey, socketHandlers) => {
+                handlers = socketHandlers;
+                return { send: (data) => sent.push(data), close: () => undefined };
+              }),
+            ),
+          ),
+        ),
+      );
+      assert.isTrue(state.started);
+      handlers!.onOpen();
+      listeners.message!({ data: { _tag: "audio", pcm: new Uint8Array([1]).buffer } });
+      listeners.message!({ data: { _tag: "finish" } });
+      handlers!.onMessage(JSON.stringify({ message_type: "committed_transcript", text: "Hi." }));
+      assert.deepStrictEqual(
+        sent.map((data) => (JSON.parse(data) as { commit: boolean }).commit),
+        [false, true],
+      );
+      assert.deepStrictEqual(posted, [{ _tag: "committed", text: "Hi." }, { _tag: "finished" }]);
+      assert.isTrue(state.closed);
     }),
   );
 });

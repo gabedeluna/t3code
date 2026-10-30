@@ -16,6 +16,18 @@ describe("resolveVoiceKeyterms", () => {
     expect(resolved).toMatchObject({ customCount: 2, projectCount: 98, omitted: 12, invalid: [] });
   });
 
+  it("sends live dictation at most 50 terms of at most 20 characters", () => {
+    const resolved = resolveVoiceKeyterms(
+      ["T3 Code", "a twenty-one-char one"],
+      projects(60),
+      "realtime",
+    );
+
+    expect(resolved.keyterms).toHaveLength(50);
+    expect(resolved.keyterms.slice(0, 2)).toEqual(["T3 Code", "project-0"]);
+    expect(resolved).toMatchObject({ customCount: 1, projectCount: 49, omitted: 11, tooLong: 1 });
+  });
+
   it("leaves out what ElevenLabs would reject, and names the user's own", () => {
     const tooLong = "x".repeat(50);
     const resolved = resolveVoiceKeyterms(

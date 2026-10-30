@@ -1,7 +1,9 @@
 import type {
   DesktopBridge,
+  DesktopVoiceStreamEvent,
   DesktopVoiceTranscriptionRequest,
   DesktopVoiceTranscriptionResult,
+  VoiceInputMode,
 } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
@@ -10,6 +12,25 @@ import { render } from "../../../test/render";
 import type { ComposerVoiceTarget } from "../../voiceInput/composerVoiceSession";
 import { ComposerDictationButton } from "./ComposerDictationButton";
 import { useComposerVoiceInput } from "./useComposerVoiceInput";
+
+const state = vi.hoisted(() => ({ mode: "batch" as VoiceInputMode }));
+
+vi.mock(import("../../hooks/useSettings"), async (importOriginal) => {
+  const original = await importOriginal();
+  return {
+    ...original,
+    getClientSettings: () => ({ ...original.getClientSettings(), voiceInputMode: state.mode }),
+  };
+});
+
+// Live dictation's microphone, which needs no audio for the stream to answer.
+vi.mock("../../voiceInput/pcmCapture", () => ({
+  openPcmCapture: async () => ({ stop: async () => {}, close: () => {} }),
+}));
+
+function setup(mode: VoiceInputMode) {
+  state.mode = mode;
+}
 
 // The real recorder needs a microphone; this one hands back a fixed clip.
 vi.mock("../../voiceInput/webVoiceRecorder", () => ({
@@ -39,6 +60,7 @@ vi.mock("../../voiceInput/webVoiceRecorder", () => ({
 
 function installDesktopBridge(result: DesktopVoiceTranscriptionResult) {
   const requests: DesktopVoiceTranscriptionRequest[] = [];
+  const stream = { emit: (_event: DesktopVoiceStreamEvent) => {}, finished: 0 };
   const voiceInput: DesktopBridge["voiceInput"] = {
     getStatus: async () => ({ apiKeyConfigured: true, encryptionAvailable: true }),
     setApiKey: async () => ({ apiKeyConfigured: true, encryptionAvailable: true }),
@@ -46,10 +68,22 @@ function installDesktopBridge(result: DesktopVoiceTranscriptionResult) {
       requests.push(request);
       return result;
     },
+    openStream: (_options, onEvent) => {
+      stream.emit = onEvent;
+      return {
+        sendAudio: () => {},
+        finish: () => {
+          stream.finished += 1;
+          onEvent({ _tag: "finished" });
+        },
+        close: () => {},
+      };
+    },
   };
   window.desktopBridge = { voiceInput } as DesktopBridge;
   return {
     requests,
+    stream,
     [Symbol.dispose]: () => {
       delete window.desktopBridge;
     },
@@ -71,7 +105,11 @@ function draftTarget(text: string) {
 }
 
 function Composer(props: { readonly readTarget: () => ComposerVoiceTarget }) {
-  const voiceInput = useComposerVoiceInput({ enabled: true, readTarget: props.readTarget });
+  const voiceInput = useComposerVoiceInput({
+    enabled: true,
+    readTarget: props.readTarget,
+    showPreview: () => {},
+  });
   return (
     <ComposerDictationButton
       phase={voiceInput.phase}
@@ -90,6 +128,7 @@ function holdKeyEvent(type: "keydown" | "keyup", atMs: number) {
 }
 
 it("dictates into the draft while Right Ctrl is held", async () => {
+  setup("batch");
   using bridge = installDesktopBridge({ _tag: "transcribed", text: "and ship it" });
   const { draft, readTarget } = draftTarget("Fix the bug");
   await using screen = await render(<Composer readTarget={readTarget} />);
@@ -104,6 +143,7 @@ it("dictates into the draft while Right Ctrl is held", async () => {
 });
 
 it("Esc cancels a recording started from the mic button, without a request", async () => {
+  setup("batch");
   using bridge = installDesktopBridge({ _tag: "transcribed", text: "unused" });
   const { draft, readTarget } = draftTarget("Draft");
   await using screen = await render(<Composer readTarget={readTarget} />);
@@ -115,4 +155,21 @@ it("Esc cancels a recording started from the mic button, without a request", asy
   await expect.element(screen.getByRole("button", { name: "Dictate" })).toBeVisible();
   expect(bridge.requests).toEqual([]);
   expect(draft.text).toBe("Draft");
+});
+
+it("streams by default, placing words while Right Ctrl is held", async () => {
+  setup("streaming");
+  using bridge = installDesktopBridge({ _tag: "transcribed", text: "unused" });
+  const { draft, readTarget } = draftTarget("Fix the bug");
+  await using screen = await render(<Composer readTarget={readTarget} />);
+
+  holdKeyEvent("keydown", 1_000);
+  await expect.element(screen.getByRole("button", { name: "Stop and transcribe" })).toBeVisible();
+  bridge.stream.emit({ _tag: "committed", text: "and ship it" });
+  expect(draft.text).toBe("Fix the bug and ship it");
+  holdKeyEvent("keyup", 3_000);
+
+  await expect.element(screen.getByRole("button", { name: "Dictate" })).toBeVisible();
+  expect(bridge.stream.finished).toBe(1);
+  expect(bridge.requests).toEqual([]);
 });
