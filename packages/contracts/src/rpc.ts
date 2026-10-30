@@ -124,6 +124,7 @@ import {
 } from "./worktreeSetup.ts";
 import {
   LedgerDocument,
+  ThreadLedgerCheckItemInput,
   ThreadLedgerSetEnabledInput,
   ThreadLedgerSubscribeInput,
   ThreadWorkers,
@@ -601,6 +602,7 @@ export const WS_METHODS = {
   worktreeSetupCancel: "worktreeSetup.cancel",
   subscribeThreadLedger: "subscribeThreadLedger",
   setThreadLedgerEnabled: "threadLedger.setEnabled",
+  checkThreadLedgerItem: "threadLedger.checkItem",
   subscribeThreadWorkers: "subscribeThreadWorkers",
   subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
@@ -1467,6 +1469,12 @@ const WsSetThreadLedgerEnabledRpc = Rpc.make(WS_METHODS.setThreadLedgerEnabled, 
   error: EnvironmentAuthorizationError,
 });
 
+const WsCheckThreadLedgerItemRpc = Rpc.make(WS_METHODS.checkThreadLedgerItem, {
+  payload: ThreadLedgerCheckItemInput,
+  success: LedgerDocument,
+  error: EnvironmentAuthorizationError,
+});
+
 /** The threads this thread launched, each from its ledger and status, now and on each change. */
 const WsSubscribeThreadWorkersRpc = Rpc.make(WS_METHODS.subscribeThreadWorkers, {
   payload: ThreadWorkersSubscribeInput,
@@ -2106,6 +2114,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsWorktreeSetupCancelRpc,
   WsSubscribeThreadLedgerRpc,
   WsSetThreadLedgerEnabledRpc,
+  WsCheckThreadLedgerItemRpc,
   WsSubscribeThreadWorkersRpc,
   WsVcsPullRpc,
   WsVcsRefreshStatusRpc,

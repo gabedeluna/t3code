@@ -170,6 +170,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.worktreeSetupCancel]: "vcs",
   [WS_METHODS.subscribeThreadLedger]: "orchestration",
   [WS_METHODS.setThreadLedgerEnabled]: "orchestration",
+  [WS_METHODS.checkThreadLedgerItem]: "orchestration",
   [WS_METHODS.subscribeThreadWorkers]: "orchestration",
   [WS_METHODS.subscribeResourceTelemetry]: "server",
   [WS_METHODS.vcsRefreshStatus]: "vcs",

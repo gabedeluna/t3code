@@ -25,6 +25,11 @@ export const setThreadLedgerEnabled = createEnvironmentRpcCommand(connectionAtom
   tag: WS_METHODS.setThreadLedgerEnabled,
 });
 
+export const checkThreadLedgerItem = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  label: "environment-data:thread-ledger:check-item",
+  tag: WS_METHODS.checkThreadLedgerItem,
+});
+
 export interface ThreadLedgerView {
   /** Null until the first document arrives, or while the environment is unreachable. */
   readonly ledger: LedgerDocument | null;

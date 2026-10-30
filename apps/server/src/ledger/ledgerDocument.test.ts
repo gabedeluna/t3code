@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 
 import {
   applyScribeReply,
+  checkedItem,
   draftOf,
   emptyLedger,
   readScribeReply,
@@ -207,6 +208,43 @@ describe("seededLedger", () => {
       turn(1),
     );
     assert.strictEqual(draft.topics[0]!.items.at(-1)!.id, "q2");
+  });
+});
+
+describe("checkedItem", () => {
+  it("checks off and reopens only the user's own to-dos", () => {
+    const doc = {
+      ...seededLedger(
+        emptyLedger(ThreadId.make("thread-1"), "2026-10-29T00:00:00.000Z"),
+        [
+          {
+            name: "Release",
+            status: "review",
+            items: [
+              { kind: "todo", state: "open", owner: "user", text: "Press Ctrl+R" },
+              { kind: "todo", state: "open", owner: "claude", text: "Rebuild" },
+              { kind: "question", state: "open", text: "Ship tonight?" },
+            ],
+          },
+        ],
+        "2026-10-30T00:00:00.000Z",
+      ),
+      turns: 14,
+    };
+    const checked = checkedItem(doc, "t1", true);
+    assert.deepInclude(checked.topics[0]!.items[0], {
+      state: "done",
+      note: "checked off by the user",
+      closedTurn: 14,
+    });
+    assert.strictEqual(checkedItem(checked, "t1", true), checked);
+    assert.strictEqual(checkedItem(doc, "t2", true), doc);
+    assert.strictEqual(checkedItem(doc, "q1", true), doc);
+
+    const reopened = checkedItem(checked, "t1", false).topics[0]!.items[0]!;
+    assert.strictEqual(reopened.state, "open");
+    assert.notProperty(reopened, "note");
+    assert.notProperty(reopened, "closedTurn");
   });
 });
 

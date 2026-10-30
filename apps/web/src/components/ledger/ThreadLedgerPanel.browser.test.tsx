@@ -105,6 +105,29 @@ describe("LedgerPanel", () => {
     expect(onSendPrompt).toHaveBeenCalledTimes(1);
   });
 
+  it("lets the user check off their own checks, and only when the connection may", async () => {
+    const onCheckItem = vi.fn();
+    {
+      await using screen = await render(panel({ onCheckItem }));
+      const needs = screen.getByRole("region", { name: "Needs you" });
+      await needs
+        .getByRole("button", {
+          name: "Check off: Watch a 50-zombie horde and say if the swings read",
+        })
+        .click();
+      expect(onCheckItem).toHaveBeenCalledWith("t2", true);
+      // Claude's to-dos and questions stay the scribe's to close.
+      expect(needs.getByRole("button", { name: /^Check off/ }).elements()).toHaveLength(1);
+    }
+    await using screen = await render(panel());
+    await expect
+      .element(screen.getByRole("region", { name: "Needs you" }).getByLabelText("Check"))
+      .toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: /^Check off/ }))
+      .not.toBeInTheDocument();
+  });
+
   it("keeps the topics the user opened open after it mounts again", async () => {
     using _storage = freshStorage();
     {

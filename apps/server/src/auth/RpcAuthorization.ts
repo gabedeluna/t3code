@@ -167,6 +167,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.worktreeSetupCancel]: AuthOrchestrationOperateScope,
   [WS_METHODS.subscribeThreadLedger]: AuthOrchestrationReadScope,
   [WS_METHODS.setThreadLedgerEnabled]: AuthOrchestrationOperateScope,
+  [WS_METHODS.checkThreadLedgerItem]: AuthOrchestrationOperateScope,
   [WS_METHODS.subscribeThreadWorkers]: AuthOrchestrationReadScope,
   [WS_METHODS.subscribeResourceTelemetry]: AuthDiagnosticsReadScope,
   [WS_METHODS.vcsRefreshStatus]: AuthOrchestrationReadScope,

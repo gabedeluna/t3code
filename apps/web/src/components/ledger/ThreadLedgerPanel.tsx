@@ -57,12 +57,21 @@ import {
 } from "./ledger.logic";
 import { TopicStatusBadge, TopicStatusIcon } from "./ledgerPresentation";
 import { type LedgerScope, LedgerScopeToggle, LedgerWorkersView } from "./LedgerWorkersView";
+import { useLedgerCheck } from "./useLedgerCheck";
 import { useLedgerSwitch } from "./useLedgerSwitch";
 
 type LedgerView = "open" | "all";
 
-/** Sends what the composer holds, as the chat's own send would. */
-const LedgerSendContext = createContext<(() => void) | undefined>(undefined);
+interface LedgerActions {
+  /** Sends what the composer holds, as the chat's own send would. */
+  readonly sendPrompt: (() => void) | undefined;
+  /** Checks off one of the user's own to-dos, or opens it again. */
+  readonly checkItem: ((itemId: string, done: boolean) => void) | undefined;
+}
+const LedgerActionsContext = createContext<LedgerActions>({
+  sendPrompt: undefined,
+  checkItem: undefined,
+});
 
 /**
  * The right panel's Ledger tab: the thread's topics, what waits on the user, and the agent's task
@@ -79,6 +88,7 @@ export function ThreadLedgerPanel({
   const thread = useThreadShell(threadRef);
   const scribe = useLedgerScribeSettings(threadRef);
   const ledgerSwitch = useLedgerSwitch(threadRef);
+  const checkItem = useLedgerCheck(threadRef);
   const workers = useThreadWorkers(threadRef);
   const [scope, setScope] = useState<LedgerScope>("thread");
   const navigate = useNavigate();
@@ -114,6 +124,9 @@ export function ThreadLedgerPanel({
       onTurnOn={() => void ledgerSwitch.setEnabled(true)}
       {...(scopeToggle === undefined ? {} : { scopeToggle })}
       {...(onSendPrompt === undefined ? {} : { onSendPrompt })}
+      {...(checkItem === undefined
+        ? {}
+        : { onCheckItem: (itemId: string, done: boolean) => void checkItem(itemId, done) })}
     />
   );
 }
@@ -127,6 +140,7 @@ export function LedgerPanel(props: {
   /** This thread or its workers, for a thread that launched some. */
   readonly scopeToggle?: ReactNode;
   readonly onSendPrompt?: () => void;
+  readonly onCheckItem?: (itemId: string, done: boolean) => void;
 }) {
   if (!props.ledger.enabled) {
     return (
@@ -139,14 +153,14 @@ export function LedgerPanel(props: {
     );
   }
   return (
-    <LedgerSendContext value={props.onSendPrompt}>
+    <LedgerActionsContext value={{ sendPrompt: props.onSendPrompt, checkItem: props.onCheckItem }}>
       <LedgerOnView
         ledger={props.ledger}
         title={props.title}
         scribe={props.scribe}
         scopeToggle={props.scopeToggle}
       />
-    </LedgerSendContext>
+    </LedgerActionsContext>
   );
 }
 
@@ -467,7 +481,16 @@ function NeedRow({ item, topic }: { item: LedgerItem; topic: LedgerTopic }) {
           className={"mt-px size-4 shrink-0 text-question-foreground"}
         />
       ) : (
-        <CircleIcon aria-label="Check" className="mt-px size-4 shrink-0 text-muted-foreground" />
+        <TodoCheck
+          item={item}
+          className="mt-px size-4"
+          fallback={
+            <CircleIcon
+              aria-label="Check"
+              className="mt-px size-4 shrink-0 text-muted-foreground"
+            />
+          }
+        />
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-medium leading-4.5 text-foreground/90">{item.text}</span>
@@ -484,7 +507,7 @@ function NeedRow({ item, topic }: { item: LedgerItem; topic: LedgerTopic }) {
  */
 function QuestionActions({ item }: { item: LedgerItem }) {
   const composerRef = useComposerHandleContext();
-  const sendPrompt = use(LedgerSendContext);
+  const { sendPrompt } = use(LedgerActionsContext);
   const { answer, recommended, explain } = questionPrompts(item);
   const addToChat = (text: string, send: boolean) => {
     const composer = composerRef?.current;
@@ -667,7 +690,7 @@ function TopicItemRow({ item }: { item: LedgerItem }) {
       : (note ?? (item.state === "dropped" ? "Dropped" : null));
   return (
     <li className="flex gap-2.5 rounded-lg px-2 py-1">
-      <TopicItemIcon item={item} />
+      <TodoCheck item={item} className="mt-0.5 size-3.5" fallback={<TopicItemIcon item={item} />} />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span
           className={cn(
@@ -686,6 +709,40 @@ function TopicItemRow({ item }: { item: LedgerItem }) {
         </span>
       ) : null}
     </li>
+  );
+}
+
+/** The user's own to-do: a click checks it off or opens it again, with no message or model call. */
+function TodoCheck(props: {
+  readonly item: LedgerItem;
+  readonly className: string;
+  readonly fallback: ReactNode;
+}) {
+  const { checkItem } = use(LedgerActionsContext);
+  const { item } = props;
+  const done = item.state === "done";
+  if (
+    checkItem === undefined ||
+    item.kind !== "todo" ||
+    item.owner !== "user" ||
+    (!done && item.state !== "open")
+  ) {
+    return props.fallback;
+  }
+  const Icon = done ? CircleCheckIcon : CircleIcon;
+  return (
+    <button
+      type="button"
+      aria-label={`${done ? "Reopen" : "Check off"}: ${item.text}`}
+      onClick={() => checkItem(item.id, !done)}
+      className={cn(
+        "shrink-0 cursor-pointer rounded-full hover:text-success-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        done ? "text-success-foreground" : "text-muted-foreground",
+        props.className,
+      )}
+    >
+      <Icon aria-hidden className="size-full" />
+    </button>
   );
 }
 

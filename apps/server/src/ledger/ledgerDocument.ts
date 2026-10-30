@@ -83,6 +83,32 @@ export function filedLiveTasks(doc: LedgerDocument, topicId: string): LedgerDocu
   };
 }
 
+/**
+ * The user checks off one of their own to-dos, or opens it again: the one ledger change that
+ * skips the scribe, since a click needs no model to read it. Anything else is left alone.
+ */
+export function checkedItem(doc: LedgerDocument, itemId: string, done: boolean): LedgerDocument {
+  let changed = false;
+  const topics = doc.topics.map((topic) => {
+    const items = topic.items.map((item) => {
+      if (item.id !== itemId || item.kind !== "todo" || item.owner !== "user") return item;
+      if (item.state !== (done ? "open" : "done")) return item;
+      changed = true;
+      if (done)
+        return {
+          ...item,
+          state: "done" as const,
+          note: "checked off by the user",
+          closedTurn: doc.turns,
+        };
+      const { note: _note, closedTurn: _closedTurn, ...rest } = item;
+      return { ...rest, state: "open" as const };
+    });
+    return items.some((item, index) => item !== topic.items[index]) ? { ...topic, items } : topic;
+  });
+  return changed ? { ...doc, topics } : doc;
+}
+
 export const draftOf = (doc: LedgerDocument): LedgerDraft => structuredClone(doc) as LedgerDraft;
 
 export interface ScribeClose {

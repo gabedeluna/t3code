@@ -2935,6 +2935,8 @@ export const layerWsRpc = (
         [WS_METHODS.subscribeThreadLedger]: (input) => ledgerStore.stream(input.threadId),
         [WS_METHODS.setThreadLedgerEnabled]: (input) =>
           ledgerStore.setEnabled(input.threadId, input.enabled),
+        [WS_METHODS.checkThreadLedgerItem]: (input) =>
+          ledgerStore.checkItem(input.threadId, input.itemId, input.done),
         [WS_METHODS.subscribeThreadWorkers]: (input) => ledgerWorkers.stream(input.threadId),
         [WS_METHODS.vcsRefreshStatus]: (input) =>
           vcsStatusBroadcaster.refreshStatus(input.cwd, { localOnly: input.localOnly ?? false }),

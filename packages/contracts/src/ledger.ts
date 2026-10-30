@@ -110,6 +110,14 @@ export const ThreadLedgerSetEnabledInput = Schema.Struct({
 });
 export type ThreadLedgerSetEnabledInput = typeof ThreadLedgerSetEnabledInput.Type;
 
+/** Checks off one of the user's own to-dos, or opens it again when `done` is false. */
+export const ThreadLedgerCheckItemInput = Schema.Struct({
+  threadId: ThreadId,
+  itemId: Schema.String,
+  done: Schema.Boolean,
+});
+export type ThreadLedgerCheckItemInput = typeof ThreadLedgerCheckItemInput.Type;
+
 /** Where a worker stands for the user: its runtime state, read the way the sidebar reads it. */
 export const LedgerWorkerState = Schema.Literals([
   "approval",

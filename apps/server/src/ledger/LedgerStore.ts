@@ -25,7 +25,7 @@ import * as KeyedLock from "@t3tools/shared/KeyedLock";
 
 import * as ServerConfig from "../config.ts";
 import type { LedgerShown } from "./ledgerDelta.ts";
-import { emptyLedger, seededLedger } from "./ledgerDocument.ts";
+import { checkedItem, emptyLedger, seededLedger } from "./ledgerDocument.ts";
 import { type LedgerTurn, recentTurn } from "./ledgerPrompts.ts";
 
 /**
@@ -39,6 +39,12 @@ export class LedgerStore extends Context.Service<
     /** The thread's ledger, or an empty one that is off when it has none. */
     readonly get: (threadId: ThreadId) => Effect.Effect<LedgerDocument>;
     readonly setEnabled: (threadId: ThreadId, enabled: boolean) => Effect.Effect<LedgerDocument>;
+    /** The user checks off one of their own to-dos, or opens it again. */
+    readonly checkItem: (
+      threadId: ThreadId,
+      itemId: string,
+      done: boolean,
+    ) => Effect.Effect<LedgerDocument>;
     /** Reads, changes and saves the ledger under the thread's lock. */
     readonly update: (
       threadId: ThreadId,
@@ -200,6 +206,9 @@ const make = Effect.gen(function* () {
       ),
     );
 
+  const checkItem: LedgerStore["Service"]["checkItem"] = (threadId, itemId, done) =>
+    update(threadId, (doc) => checkedItem(doc, itemId, done));
+
   const recentTurns: LedgerStore["Service"]["recentTurns"] = (threadId) =>
     readFile(turnsPath(threadId)).pipe(
       Effect.flatMap((contents) =>
@@ -308,6 +317,7 @@ const make = Effect.gen(function* () {
   return LedgerStore.of({
     get,
     setEnabled,
+    checkItem,
     update,
     recentTurns,
     appendTurn,
