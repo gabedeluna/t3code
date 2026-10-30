@@ -120,7 +120,9 @@ export function workerOf(shell: WorkerShell, doc: LedgerDocument): LedgerWorker 
         ? "input"
         : needs.length > 0 || inReview
           ? "review"
-          : doc.enabled && doc.topics.length > 0 && topics.length === 0
+          : // Done as the sidebar says it: the last turn finished and nothing is left open.
+            topics.length === 0 &&
+              (shell.status === "completed" || (doc.enabled && doc.topics.length > 0))
             ? "done"
             : "idle";
   const nextStep = nextStepOf(topics);

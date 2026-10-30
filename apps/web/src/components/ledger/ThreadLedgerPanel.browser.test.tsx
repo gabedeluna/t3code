@@ -27,9 +27,7 @@ describe("LedgerPanel", () => {
     await using screen = await render(panel());
 
     await expect.element(screen.getByRole("heading", { name: "7 days Director" })).toBeVisible();
-    await expect
-      .element(screen.getByText("Updated after turn 41 · last cleanup turn 40"))
-      .toBeVisible();
+    await expect.element(screen.getByText("Turn 41 · cleaned up at turn 40")).toBeVisible();
 
     const working = screen.getByRole("region", { name: "Working now" });
     await expect.element(working.getByText("1/3")).toBeVisible();
@@ -95,7 +93,7 @@ describe("LedgerPanel", () => {
   it("folds a settled thread's done topic and keeps its answered question", async () => {
     await using screen = await render(panel({ ledger: SETTLED_LEDGER }));
 
-    await expect.element(screen.getByText("Updated after turn 3")).toBeVisible();
+    await expect.element(screen.getByText("Turn 3")).toBeVisible();
     await expect.element(screen.getByRole("region", { name: "Needs you" })).not.toBeInTheDocument();
     await expect.element(screen.getByRole("region", { name: "Topics" })).not.toBeInTheDocument();
 

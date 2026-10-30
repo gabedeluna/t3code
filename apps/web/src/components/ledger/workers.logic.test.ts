@@ -42,8 +42,11 @@ describe("worker rows", () => {
 
   it("says so for a worker whose ledger is off", () => {
     const spike = byTitle("Second dev client spike");
-    expect(workerLine(spike)).toBe("Ledger off for this thread");
-    expect(workerMeta(spike)).toBe("No ledger: open the thread to see where it stands");
+    expect(workerLine(spike)).toBe("");
+    expect(workerMeta(spike)).toBe("Ledger off");
+    expect(workerLine({ ...spike, state: "input", group: "needs-you" })).toBe(
+      "Waiting for your answer",
+    );
   });
 
   it("falls back to the runtime when the ledger has nothing to say", () => {

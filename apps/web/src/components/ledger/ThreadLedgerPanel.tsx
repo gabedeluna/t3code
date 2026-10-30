@@ -212,7 +212,7 @@ function LedgerOnView(props: {
             {props.title}
           </h2>
           <p className="flex min-w-0 items-center gap-1.5 text-2xs text-muted-foreground">
-            <span className="truncate">{ledgerUpdatedLabel(ledger)}</span>
+            <span className="line-clamp-2 break-words">{ledgerUpdatedLabel(ledger)}</span>
             {ledger.scribing ? (
               <span className="inline-flex shrink-0 items-center gap-1" role="status">
                 <LoaderCircleIcon aria-hidden className="size-3 motion-safe:animate-spin" />

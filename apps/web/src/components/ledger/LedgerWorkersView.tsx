@@ -1,5 +1,5 @@
 import type { LedgerWorker, LedgerWorkerGroup, ThreadId } from "@t3tools/contracts";
-import { CircleDashedIcon, CircleIcon } from "lucide-react";
+import { CircleCheckIcon, CircleDashedIcon, CircleIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { cn } from "../../lib/utils";
@@ -102,7 +102,13 @@ export function LedgerWorkersView(props: {
 }
 
 function WorkerRow({ worker, onOpen }: { worker: LedgerWorker; onOpen: () => void }) {
-  const StateIcon = worker.state === "working" ? CircleDashedIcon : CircleIcon;
+  const StateIcon =
+    worker.state === "working"
+      ? CircleDashedIcon
+      : worker.state === "done"
+        ? CircleCheckIcon
+        : CircleIcon;
+  const line = workerLine(worker);
   const meta = workerMeta(worker);
   return (
     <li>
@@ -125,7 +131,7 @@ function WorkerRow({ worker, onOpen }: { worker: LedgerWorker; onOpen: () => voi
             {WORKER_STATE_LABELS[worker.state]}
           </span>
         </span>
-        <span className="text-sm leading-4.5 text-foreground/80">{workerLine(worker)}</span>
+        {line ? <span className="text-sm leading-4.5 text-foreground/80">{line}</span> : null}
         {meta ? <span className="text-2xs text-muted-foreground">{meta}</span> : null}
       </button>
     </li>

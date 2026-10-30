@@ -145,6 +145,13 @@ describe("workerOf", () => {
     );
   });
 
+  it("calls a worker done when its last turn finished and nothing is open, ledger or not", () => {
+    const off = ledger([], { enabled: false });
+    assert.strictEqual(workerOf(shell({ status: "completed" }), off).state, "done");
+    const live = ledger([topic({ id: "T1", name: "Landing", status: "active" })]);
+    assert.strictEqual(workerOf(shell({ status: "completed" }), live).state, "idle");
+  });
+
   it("files a settled thread as settled unless it is waiting on the user", () => {
     assert.strictEqual(workerOf(shell({ settledOverride: "settled" }), doc).group, "settled");
     assert.strictEqual(

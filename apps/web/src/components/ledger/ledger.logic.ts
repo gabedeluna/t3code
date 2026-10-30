@@ -191,11 +191,11 @@ export function liveTaskProgress(tasks: ReadonlyArray<LedgerLiveTask>) {
   };
 }
 
-/** "Updated after turn 41 · last cleanup turn 40". */
+/** "Turn 41 · cleaned up at turn 40". */
 export function ledgerUpdatedLabel(ledger: LedgerDocument): string {
   if (ledger.turns === 0) return "Starts from the next turn";
-  const updated = `Updated after turn ${ledger.turns}`;
-  return ledger.sweptTurn > 0 ? `${updated} · last cleanup turn ${ledger.sweptTurn}` : updated;
+  const updated = `Turn ${ledger.turns}`;
+  return ledger.sweptTurn > 0 ? `${updated} · cleaned up at turn ${ledger.sweptTurn}` : updated;
 }
 
 /** A model alias as the footer names it: "haiku" reads "Haiku"; full model ids stay as typed. */

@@ -61,12 +61,13 @@ const showsNeed = (worker: LedgerWorker) => worker.group === "needs-you" && work
 
 /** The row's main line: what waits on the user, else the topic under way. */
 export function workerLine(worker: LedgerWorker): string {
-  if (!worker.ledgerEnabled) return "Ledger off for this thread";
   const [need] = worker.needs;
   if (need !== undefined && showsNeed(worker)) return need.text;
   if (worker.state === "failed") return worker.lastError ?? "The last turn failed";
   if (worker.state === "approval") return "Waiting for your approval";
   if (worker.state === "input") return "Waiting for your answer";
+  // With its ledger off there's nothing to add to the state beside the title.
+  if (!worker.ledgerEnabled) return "";
   const topic =
     worker.state === "review"
       ? (worker.topics.find((candidate) => candidate.status === "review") ?? worker.topics[0])
@@ -77,7 +78,7 @@ export function workerLine(worker: LedgerWorker): string {
 
 /** The row's meta line: where the need comes from, or the next step and task progress. */
 export function workerMeta(worker: LedgerWorker): string {
-  if (!worker.ledgerEnabled) return "No ledger: open the thread to see where it stands";
+  if (!worker.ledgerEnabled) return "Ledger off";
   const parts: string[] = [];
   const [need] = worker.needs;
   if (need !== undefined && showsNeed(worker)) {

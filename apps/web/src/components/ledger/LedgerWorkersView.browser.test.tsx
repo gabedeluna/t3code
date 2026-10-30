@@ -71,7 +71,7 @@ describe("LedgerWorkersView", () => {
       .toBeVisible();
 
     const quiet = screen.getByRole("region", { name: "Quiet" });
-    await expect.element(quiet.getByText("Ledger off for this thread")).toBeVisible();
+    await expect.element(quiet.getByText("Ledger off")).toBeVisible();
 
     const settled = screen.getByRole("region", { name: "Settled" });
     await expect.element(settled.getByText("Old save format")).not.toBeInTheDocument();

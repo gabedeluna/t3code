@@ -114,8 +114,8 @@ describe("thread details card topics", () => {
 
 describe("labels", () => {
   it("says when the ledger last updated", () => {
-    expect(ledgerUpdatedLabel(BUSY_LEDGER)).toBe("Updated after turn 41 · last cleanup turn 40");
-    expect(ledgerUpdatedLabel(SETTLED_LEDGER)).toBe("Updated after turn 3");
+    expect(ledgerUpdatedLabel(BUSY_LEDGER)).toBe("Turn 41 · cleaned up at turn 40");
+    expect(ledgerUpdatedLabel(SETTLED_LEDGER)).toBe("Turn 3");
     expect(ledgerUpdatedLabel({ ...OFF_LEDGER, enabled: true })).toBe("Starts from the next turn");
   });
 
