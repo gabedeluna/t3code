@@ -35,6 +35,8 @@ const FATAL_STREAM_FAILURES = new Set<DesktopVoiceTranscriptionFailureReason>([
 ]);
 // Less audio than this holds no words worth a batch request.
 const MIN_FALLBACK_SAMPLES = (VOICE_INPUT_STREAM_SAMPLE_RATE * MIN_VOICE_HOLD_MS) / 1_000;
+// The main process ends a finishing stream within 4 s; silence past this means it never will.
+const FINISH_DEADLINE_MS = 6_000;
 
 export interface StreamingVoiceRequestOptions extends DesktopVoiceRequestOptions {
   /** At most 50 short terms, which is all Scribe v2 Realtime takes. */
@@ -58,7 +60,8 @@ interface Dictation {
   /** Null once the stream ends; after a failure the dictation finishes through batch. */
   stream: DesktopVoiceStream | null;
   streamFailed: boolean;
-  limitTimer: ReturnType<typeof setTimeout> | null;
+  /** The recording limit while listening, then the deadline for the stream's last phrase. */
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 /**
@@ -144,7 +147,7 @@ export class ComposerStreamingSession {
       capture: null,
       stream: null,
       streamFailed: false,
-      limitTimer: null,
+      timer: null,
     };
     this.dictation = dictation;
     this.setPhase("preparing");
@@ -190,10 +193,7 @@ export class ComposerStreamingSession {
       );
       return;
     }
-    dictation.limitTimer = setTimeout(
-      () => void this.finish(),
-      VOICE_RECORDING_LIMIT_SECONDS * 1_000,
-    );
+    dictation.timer = setTimeout(() => void this.finish(), VOICE_RECORDING_LIMIT_SECONDS * 1_000);
     this.setPhase("recording");
   }
 
@@ -210,13 +210,18 @@ export class ComposerStreamingSession {
     const dictation = this.dictation;
     if (!dictation || this.phase !== "recording") return;
     this.setPhase("transcribing");
-    if (dictation.limitTimer !== null) clearTimeout(dictation.limitTimer);
+    if (dictation.timer !== null) clearTimeout(dictation.timer);
     await dictation.capture?.stop();
     dictation.capture = null;
     if (this.dictation !== dictation) return;
     if (dictation.stream) {
       // The stream's `finished` or `failed` event completes the dictation.
       dictation.stream.finish();
+      dictation.timer = setTimeout(() => {
+        if (!dictation.stream) return;
+        dictation.stream.close();
+        this.handleStreamEvent(dictation, { _tag: "failed", reason: "unreachable" });
+      }, FINISH_DEADLINE_MS);
       return;
     }
     await this.finishThroughBatch(dictation);
@@ -351,7 +356,7 @@ export class ComposerStreamingSession {
   private end(dictation: Dictation): void {
     if (this.dictation !== dictation) return;
     this.dictation = null;
-    if (dictation.limitTimer !== null) clearTimeout(dictation.limitTimer);
+    if (dictation.timer !== null) clearTimeout(dictation.timer);
     dictation.capture?.close();
     dictation.stream?.close();
     dictation.stream = null;

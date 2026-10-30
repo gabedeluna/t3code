@@ -181,6 +181,30 @@ describe("ComposerStreamingSession", () => {
     expect(requests).toHaveLength(1);
   });
 
+  it("falls back when the stream never answers the stop", async () => {
+    vi.useFakeTimers();
+    try {
+      const { session, draft, stream, microphone, requests, errors } = setup({
+        respond: async () => ({ _tag: "transcribed", text: "Hello there." }),
+      });
+
+      await session.toggle();
+      microphone.onChunk(SECOND_OF_AUDIO);
+      await session.toggle();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(session.getPhase()).toBe("transcribing");
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.waitFor(() => expect(session.getPhase()).toBe("idle"));
+      expect(stream.closed).toBe(1);
+      expect(requests).toHaveLength(1);
+      expect(draft.text).toBe("Hello there.");
+      expect(errors).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops at once on a key problem, which batch would hit too", async () => {
     const { session, stream, microphone, requests, errors } = setup({});
 
