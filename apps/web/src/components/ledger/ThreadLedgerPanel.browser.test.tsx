@@ -35,13 +35,19 @@ describe("LedgerPanel", () => {
     await expect.element(topics.getByText("Add slot claims")).toBeVisible();
   });
 
-  it("puts a question in the composer to answer, take the recommendation, or explain", async () => {
+  it("sends the recommendation, but never along with a message in progress", async () => {
+    let prompt = "";
     const insertTextAtEnd = vi.fn(() => true);
     const composer = {
-      current: { insertTextAtEnd, focusAtEnd: vi.fn(), readSnapshot: () => ({ value: "" }) },
+      current: {
+        insertTextAtEnd,
+        focusAtEnd: vi.fn(),
+        getSendContext: () => ({ prompt, images: [], files: [] }),
+      },
     } as unknown as ComposerHandleRef;
+    const onSendPrompt = vi.fn();
     await using screen = await render(
-      <ComposerHandleContext value={composer}>{panel()}</ComposerHandleContext>,
+      <ComposerHandleContext value={composer}>{panel({ onSendPrompt })}</ComposerHandleContext>,
     );
 
     const needs = screen.getByRole("region", { name: "Needs you" });
@@ -57,6 +63,12 @@ describe("LedgerPanel", () => {
       'Ledger question q4: "Start milestone 1 now, or re-time the horde first?"\nMy answer: go with your recommendation ("Re-time the horde first.")',
       { ensureLeadingBoundary: true },
     );
+    expect(onSendPrompt).toHaveBeenCalledTimes(1);
+
+    prompt = "Also, rename the branch";
+    await recommended.getByRole("button", { name: "Explain" }).click();
+    expect(insertTextAtEnd).toHaveBeenCalledTimes(2);
+    expect(onSendPrompt).toHaveBeenCalledTimes(1);
   });
 
   it("lays out a busy ledger as the mockup does", async () => {

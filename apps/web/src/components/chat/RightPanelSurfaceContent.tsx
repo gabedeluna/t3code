@@ -72,6 +72,7 @@ export function RightPanelSurfaceContent(props: {
     annotation: PreviewAnnotationPayload,
     image: ComposerImageAttachment | null,
   ) => void;
+  readonly onSendPrompt: () => void;
   readonly onCloseSurface: (surface: RightPanelSurface) => void;
   readonly terminal: RightPanelTerminalProps;
   readonly pullRequest: RightPanelPullRequestProps;
@@ -167,7 +168,7 @@ export function RightPanelSurfaceContent(props: {
     case "pull-requests":
       return <ThreadPullRequestsPanel threadRef={threadRef} />;
     case "ledger":
-      return <ThreadLedgerPanel threadRef={threadRef} />;
+      return <ThreadLedgerPanel threadRef={threadRef} onSendPrompt={props.onSendPrompt} />;
     case "device":
       return (
         <Suspense fallback={null}>

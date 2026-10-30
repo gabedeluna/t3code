@@ -21,7 +21,7 @@ import {
   PlusIcon,
   ChevronDownIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, use, useState } from "react";
 
 import { useComposerHandleContext } from "../../composerHandleContext";
 import { cn } from "../../lib/utils";
@@ -60,11 +60,20 @@ import { useLedgerSwitch } from "./useLedgerSwitch";
 
 type LedgerView = "open" | "all";
 
+/** Sends what the composer holds, as the chat's own send would. */
+const LedgerSendContext = createContext<(() => void) | undefined>(undefined);
+
 /**
  * The right panel's Ledger tab: the thread's topics, what waits on the user, and the agent's task
  * list. A thread that launched workers (a Director) can switch to their rollup.
  */
-export function ThreadLedgerPanel({ threadRef }: { threadRef: ScopedThreadRef }) {
+export function ThreadLedgerPanel({
+  threadRef,
+  onSendPrompt,
+}: {
+  threadRef: ScopedThreadRef;
+  onSendPrompt?: () => void;
+}) {
   const { ledger, error } = useThreadLedger(threadRef);
   const thread = useThreadShell(threadRef);
   const scribe = useLedgerScribeSettings(threadRef);
@@ -103,6 +112,7 @@ export function ThreadLedgerPanel({ threadRef }: { threadRef: ScopedThreadRef })
       canTurnOn={ledgerSwitch.canOperate && !ledgerSwitch.pending}
       onTurnOn={() => void ledgerSwitch.setEnabled(true)}
       {...(scopeToggle === undefined ? {} : { scopeToggle })}
+      {...(onSendPrompt === undefined ? {} : { onSendPrompt })}
     />
   );
 }
@@ -115,6 +125,7 @@ export function LedgerPanel(props: {
   readonly onTurnOn: () => void;
   /** This thread or its workers, for a thread that launched some. */
   readonly scopeToggle?: ReactNode;
+  readonly onSendPrompt?: () => void;
 }) {
   if (!props.ledger.enabled) {
     return (
@@ -127,12 +138,14 @@ export function LedgerPanel(props: {
     );
   }
   return (
-    <LedgerOnView
-      ledger={props.ledger}
-      title={props.title}
-      scribe={props.scribe}
-      scopeToggle={props.scopeToggle}
-    />
+    <LedgerSendContext value={props.onSendPrompt}>
+      <LedgerOnView
+        ledger={props.ledger}
+        title={props.title}
+        scribe={props.scribe}
+        scopeToggle={props.scopeToggle}
+      />
+    </LedgerSendContext>
   );
 }
 
@@ -443,13 +456,21 @@ function NeedRow({ item, topic }: { item: LedgerItem; topic: LedgerTopic }) {
   );
 }
 
-/** Puts the question in the composer, for the user to answer, take the recommendation, or ask more. */
+/**
+ * Puts the question in the composer. Use recommended and Explain send it too, unless a message is
+ * in progress: then it joins that message, for the user to send.
+ */
 function QuestionActions({ item }: { item: LedgerItem }) {
   const composerRef = useComposerHandleContext();
+  const sendPrompt = use(LedgerSendContext);
   const { answer, recommended, explain } = questionPrompts(item);
-  const addToChat = (text: string) => {
+  const addToChat = (text: string, send: boolean) => {
     const composer = composerRef?.current;
-    const lead = composer?.readSnapshot().value.trim() ? "\n\n" : "";
+    const draft = composer?.getSendContext();
+    const drafting =
+      draft !== undefined &&
+      (draft.prompt.trim() !== "" || draft.images.length > 0 || draft.files.length > 0);
+    const lead = draft?.prompt.trim() ? "\n\n" : "";
     if (!composer?.insertTextAtEnd(`${lead}${text}`, { ensureLeadingBoundary: true })) {
       toastManager.add({
         type: "error",
@@ -460,19 +481,20 @@ function QuestionActions({ item }: { item: LedgerItem }) {
       });
       return;
     }
-    composer.focusAtEnd();
+    if (send && !drafting && sendPrompt !== undefined) sendPrompt();
+    else composer.focusAtEnd();
   };
   return (
     <span className="flex flex-wrap gap-1 pt-1">
       {recommended === undefined ? null : (
-        <Button size="micro" variant="outline" onClick={() => addToChat(recommended)}>
+        <Button size="micro" variant="outline" onClick={() => addToChat(recommended, true)}>
           Use recommended
         </Button>
       )}
-      <Button size="micro" variant="outline" onClick={() => addToChat(answer)}>
+      <Button size="micro" variant="outline" onClick={() => addToChat(answer, false)}>
         Answer
       </Button>
-      <Button size="micro" variant="ghost-muted" onClick={() => addToChat(explain)}>
+      <Button size="micro" variant="ghost-muted" onClick={() => addToChat(explain, true)}>
         Explain
       </Button>
     </span>
