@@ -581,6 +581,38 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["queue steer running turn send default behavior composer"],
   },
   {
+    id: "voice-input-api-key",
+    title: "ElevenLabs API key",
+    to: "/settings/chat",
+    desktopOnly: true,
+    searchTerms: [
+      "voice input dictation dictate speech to text microphone mic elevenlabs scribe api key transcribe",
+    ],
+  },
+  {
+    id: "voice-input-language",
+    title: "Dictation language",
+    to: "/settings/chat",
+    desktopOnly: true,
+    searchTerms: ["voice input dictation speech language english detect"],
+  },
+  {
+    id: "voice-input-hold-key",
+    title: "Hold to talk",
+    to: "/settings/chat",
+    desktopOnly: true,
+    searchTerms: ["voice input dictation push to talk hold key right ctrl control microphone"],
+  },
+  {
+    id: "voice-input-keyterms",
+    title: "Dictation keyterms",
+    to: "/settings/chat",
+    desktopOnly: true,
+    searchTerms: [
+      "voice input dictation keyterms vocabulary words names jargon spelling project names elevenlabs",
+    ],
+  },
+  {
     id: "provider-update-checks",
     title: "Provider update checks",
     to: "/settings/maintenance",

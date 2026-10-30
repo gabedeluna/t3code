@@ -48,6 +48,12 @@ import {
   ProviderDriverKind,
 } from "./providerInstance.ts";
 import { PullRequestMergeMethod } from "./pullRequest.ts";
+import {
+  DEFAULT_VOICE_INPUT_HOLD_KEY,
+  DEFAULT_VOICE_INPUT_LANGUAGE,
+  VoiceInputHoldKey,
+  VoiceInputLanguage,
+} from "./voiceInput.ts";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -517,6 +523,18 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   snapShotFlash: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   snapShotAnimations: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  // Desktop dictation. Keyterms stay plain strings so one bad entry cannot fail the document;
+  // the composer drops what ElevenLabs would reject.
+  voiceInputKeyterms: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefault(Effect.succeed([])),
+  ),
+  voiceInputLanguage: VoiceInputLanguage.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_VOICE_INPUT_LANGUAGE)),
+  ),
+  // Null turns hold-to-talk off.
+  voiceInputHoldKey: Schema.NullOr(VoiceInputHoldKey).pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_VOICE_INPUT_HOLD_KEY)),
+  ),
   wordWrap: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   // Opt-in TeX typesetting in rendered Markdown. Off keeps math parsing and
   // KaTeX out of the render path entirely.
@@ -1761,6 +1779,9 @@ export const ClientSettingsPatch = Schema.Struct({
   snapShotSound: Schema.optionalKey(SnapShotSound),
   snapShotFlash: Schema.optionalKey(Schema.Boolean),
   snapShotAnimations: Schema.optionalKey(Schema.Boolean),
+  voiceInputKeyterms: Schema.optionalKey(Schema.Array(Schema.String)),
+  voiceInputLanguage: Schema.optionalKey(VoiceInputLanguage),
+  voiceInputHoldKey: Schema.optionalKey(Schema.NullOr(VoiceInputHoldKey)),
   wordWrap: Schema.optionalKey(Schema.Boolean),
   mathRenderingEnabled: Schema.optionalKey(Schema.Boolean),
 });

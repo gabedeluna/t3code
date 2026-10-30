@@ -52,6 +52,7 @@ import { createModelSelection, normalizeModelSlug } from "@t3tools/shared/model"
 import { USAGE_LIMITS_COMMAND } from "@t3tools/shared/usageLimits";
 import {
   memo,
+  use,
   useEffect,
   useEffectEvent,
   useId,
@@ -133,6 +134,11 @@ import {
 import { attachmentUploadBlockReason } from "../../lib/attachmentUploadState";
 import type { AssistantCitationSourceAnchor } from "~/lib/assistantTextSelection";
 import { shortcutLabelForCommand } from "../../keybindings";
+import type { ComposerVoiceTarget } from "../../voiceInput/composerVoiceSession";
+import { voiceHoldKeyLabel } from "../../voiceInput/voiceHoldKey";
+import { BackgroundThreadContext } from "./backgroundThread";
+import { ComposerDictationButton } from "./ComposerDictationButton";
+import { useComposerVoiceInput } from "./useComposerVoiceInput";
 import {
   type TerminalContextDraft,
   type TerminalContextSelection,
@@ -914,7 +920,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     selectedProviderEntry?.snapshot,
     selectedModel,
   );
+  const backgroundThread = use(BackgroundThreadContext);
+  // Send has to wait for dictation, so the hook comes before the send state. Its target needs
+  // the editor helpers further down, which it only calls from events.
+  const voiceInput = useComposerVoiceInput({
+    enabled: !backgroundThread,
+    readTarget: () => readVoiceTargetStable(),
+  });
   const sendDisabledReason =
+    (voiceInput.busy ? "Finish dictating first." : null) ??
     externalSendDisabledReason ??
     (multipleModelSelections?.length === 0 ? "Select at least one model." : null) ??
     (activePendingProgress
@@ -1817,6 +1831,24 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     };
   };
   const readComposerSnapshotStable = useStableCallback(readComposerSnapshot);
+
+  const readVoiceTarget = (): ComposerVoiceTarget | null => {
+    if (
+      projectSelectionRequired ||
+      isChoiceOnlyPendingQuestion ||
+      activePendingIsResponding ||
+      (activePendingUserInput && activePendingProgress?.activeQuestion?.allowCustomAnswer === false)
+    ) {
+      return null;
+    }
+    return {
+      ownerKey: `${composerDraftTargetKey}:${activePendingProgress?.activeQuestion?.id ?? ""}`,
+      text: promptRef.current,
+      cursor: readComposerSnapshot().expandedCursor,
+      insert: (start, end, text) => applyPromptReplacementStable(start, end, text),
+    };
+  };
+  const readVoiceTargetStable = useStableCallback(readVoiceTarget);
 
   const resolveActiveComposerTrigger = (): {
     snapshot: { value: string; cursor: number; expandedCursor: number };
@@ -3429,7 +3461,26 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   showMobilePendingAnswerActions && "hidden sm:flex",
                 )}
               >
-                {composerAttachButton ? <div className="me-2">{composerAttachButton}</div> : null}
+                {composerAttachButton || voiceInput.available ? (
+                  <div className="me-2 flex items-center">
+                    {composerAttachButton}
+                    {voiceInput.available ? (
+                      <ComposerDictationButton
+                        phase={voiceInput.phase}
+                        shortcutLabel={shortcutLabelForCommand(keybindings, "composer.dictate")}
+                        holdKeyLabel={
+                          settings.voiceInputHoldKey === null
+                            ? null
+                            : voiceHoldKeyLabel(
+                                settings.voiceInputHoldKey,
+                                isMacPlatform(navigator.platform),
+                              )
+                        }
+                        onToggle={voiceInput.toggle}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
                 <div
                   data-chat-composer-actions="right"
                   data-chat-composer-transition-actions="true"

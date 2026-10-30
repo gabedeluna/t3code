@@ -196,6 +196,26 @@ microphone. Swipe a device left to forget it.
 Transcription runs on your device. T3 Code deletes the temporary audio after
 transcription or cancellation; only the message text is sent when you submit.
 
+## Dictation on desktop
+
+The desktop app transcribes speech with ElevenLabs Scribe, using your own
+ElevenLabs API key. Add it in **Settings → Chat → Voice input**. The key stays in
+your system keychain on that computer.
+
+Click the microphone beside the attach button to start, and click it again to
+transcribe. Or hold **Right Ctrl** while T3 Code is focused and let go when you are
+done. `mod+shift+Space` also starts and stops dictation. Esc cancels. The text lands
+where your cursor was when you started and is never sent for you; send stays off
+until the transcript arrives. Recordings can be up to five minutes long.
+
+Under **Voice input** you can also choose the language (English by default), pick
+another key to hold or turn holding off, and list keyterms: names and jargon to
+spell your way, one per line. Your project names are added for you. ElevenLabs
+bills every request as at least 20 seconds once there are more than 100 keyterms,
+so T3 Code sends at most 100, yours first, and warns as the list gets close.
+
+Recordings go to ElevenLabs to be transcribed and are not kept by T3 Code.
+
 ## Queued messages
 
 On web and desktop, the composer shows **Interrupt** while the agent is working and the draft is

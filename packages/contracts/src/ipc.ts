@@ -14,6 +14,11 @@ import { AdvertisedEndpoint } from "./remoteAccess.ts";
 import { ExecutionEnvironmentDescriptor } from "./environment.ts";
 import { type ClientSettings, type QuitConfirmationMode, SnapShotShortcut } from "./settings.ts";
 import type { EditorId } from "./editor.ts";
+import type {
+  DesktopVoiceInputStatus,
+  DesktopVoiceTranscriptionRequest,
+  DesktopVoiceTranscriptionResult,
+} from "./voiceInput.ts";
 import type { PreviewForwardedShortcut } from "./keybindings.ts";
 
 import type {
@@ -1119,6 +1124,15 @@ export interface DesktopBridge {
     getState: () => Promise<DesktopCliCommandState>;
     install: () => Promise<DesktopCliCommandState>;
     uninstall: () => Promise<DesktopCliCommandState>;
+  };
+  /** Dictation. The ElevenLabs key stays in the main process, which makes the request. */
+  voiceInput: {
+    getStatus: () => Promise<DesktopVoiceInputStatus>;
+    /** An empty key removes the stored one. */
+    setApiKey: (apiKey: string) => Promise<DesktopVoiceInputStatus>;
+    transcribe: (
+      request: DesktopVoiceTranscriptionRequest,
+    ) => Promise<DesktopVoiceTranscriptionResult>;
   };
   webLinks: {
     setReady: (ready: boolean) => Promise<void>;

@@ -69,3 +69,4 @@ export * from "./worktreeSetup.ts";
 export * from "./secretRequest.ts";
 export * from "./clientRpcPermissions.ts";
 export * from "./ledger.ts";
+export * from "./voiceInput.ts";

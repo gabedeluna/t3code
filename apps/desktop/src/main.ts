@@ -40,6 +40,8 @@ import * as DesktopAppIdentity from "./app/DesktopAppIdentity.ts";
 import * as DesktopConnectionCatalogStore from "./app/DesktopConnectionCatalogStore.ts";
 import * as DesktopClerk from "./app/DesktopClerk.ts";
 import * as DesktopCliCommand from "./app/DesktopCliCommand.ts";
+import * as ElevenLabsClient from "./voiceInput/ElevenLabsClient.ts";
+import * as ElevenLabsKeyStore from "./voiceInput/ElevenLabsKeyStore.ts";
 import * as DesktopApplicationMenu from "./window/DesktopApplicationMenu.ts";
 import * as DesktopAssets from "./app/DesktopAssets.ts";
 import * as DesktopBackendConfiguration from "./backend/DesktopBackendConfiguration.ts";
@@ -147,6 +149,7 @@ const layerDesktopFoundation = Layer.mergeAll(
   DesktopAppSettings.layer,
   DesktopClientSettings.layer,
   DesktopConnectionCatalogStore.layer.pipe(Layer.provideMerge(DesktopSavedEnvironments.layer)),
+  ElevenLabsKeyStore.layer,
   DesktopAssets.layer,
   DesktopObservability.layer,
   DesktopRendererHistory.layer,
@@ -208,6 +211,7 @@ const layerDesktopApplication = Layer.mergeAll(
   DesktopApplicationMenu.layer,
   DesktopLinuxUrlHandler.layer,
   DesktopCliCommand.layer,
+  ElevenLabsClient.layer,
   layerDesktopSsh,
 ).pipe(
   Layer.provideMerge(layerDesktopSnapShot),
