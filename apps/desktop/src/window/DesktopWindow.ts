@@ -815,7 +815,8 @@ export const make = Effect.gen(function* () {
     });
 
     loadApplication();
-    if (environment.isDevelopment) {
+    // T3CODE_DEV_DEVTOOLS=0 keeps dev builds from opening DevTools (set by the taskbar launcher).
+    if (environment.isDevelopment && process.env.T3CODE_DEV_DEVTOOLS !== "0") {
       window.webContents.openDevTools({ mode: "detach" });
     }
 
