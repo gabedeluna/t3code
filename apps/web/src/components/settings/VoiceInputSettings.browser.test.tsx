@@ -62,6 +62,9 @@ function setup(options: { projectTitles?: string[]; keyterms?: string[] } = {}) 
     getStatus: async () => status,
     setApiKey,
     transcribe: async () => ({ _tag: "failed", reason: "failed" }),
+    openStream: () => {
+      throw new Error("Settings do not stream.");
+    },
   };
   window.desktopBridge = { voiceInput } as DesktopBridge;
   return {

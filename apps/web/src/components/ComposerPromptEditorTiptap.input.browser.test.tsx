@@ -22,6 +22,7 @@ import {
   type ComposerPromptEditorHandle,
   type ComposerPromptEditorProps,
 } from "./ComposerPromptEditorTiptap";
+import { setComposerDictationPreview } from "./composerDictationPreview";
 
 const babysit: ServerProviderSkill = {
   name: "babysit",
@@ -247,6 +248,25 @@ const file = {
   sizeBytes: 5,
   file: new File(["notes"], "notes.txt", { type: "text/plain" }),
 } satisfies ComposerFileAttachment;
+
+it("draws dictation words faded at their draft offset without adding them to the draft", async () => {
+  await using screen = await mountEditor("Fix the bug");
+  const { editor } = screen;
+  const paragraph = () => screen.container.querySelector(".tiptap p")?.textContent;
+
+  setComposerDictationPreview(editor.view, { at: 3, text: " really" });
+  expect(paragraph()).toBe("Fix really the bug");
+  expect(serializeEditorDoc(editor.state.doc).value).toBe("Fix the bug");
+
+  // Committed words reach the document after the preview has moved past them.
+  setComposerDictationPreview(editor.view, { at: 15, text: " more" });
+  expect(paragraph()).toBe("Fix the bug more");
+  editor.commands.insertContentAt(editor.state.doc.content.size - 1, " now");
+  expect(paragraph()).toBe("Fix the bug now more");
+
+  setComposerDictationPreview(editor.view, null);
+  expect(paragraph()).toBe("Fix the bug now");
+});
 
 describe("composer context undo lifetime", () => {
   async function mountComposer(destinationValue = "") {

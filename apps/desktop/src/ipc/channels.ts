@@ -125,3 +125,4 @@ export const COMPLETE_LEGACY_LOCAL_STORAGE_CHANNEL = "desktop:complete-legacy-lo
 export const VOICE_INPUT_GET_STATUS_CHANNEL = "desktop:voice-input-get-status";
 export const VOICE_INPUT_SET_API_KEY_CHANNEL = "desktop:voice-input-set-api-key";
 export const VOICE_INPUT_TRANSCRIBE_CHANNEL = "desktop:voice-input-transcribe";
+export const VOICE_INPUT_OPEN_STREAM_CHANNEL = "desktop:voice-input-open-stream";

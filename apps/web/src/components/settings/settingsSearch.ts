@@ -590,6 +590,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "voice-input-mode",
+    title: "Live dictation",
+    to: "/settings/chat",
+    desktopOnly: true,
+    searchTerms: ["voice input dictation streaming realtime live words batch transcribe"],
+  },
+  {
     id: "voice-input-language",
     title: "Dictation language",
     to: "/settings/chat",

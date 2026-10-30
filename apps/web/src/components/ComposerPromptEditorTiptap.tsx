@@ -123,6 +123,11 @@ import { resolveAssistantCitationCommentDismissal } from "./chat/assistantCitati
 import { composerCodeBlockHighlight } from "./composerCodeBlockHighlight";
 import { importPastedComposerText } from "./composerInlineTokenPaste";
 import { didComposerSelectionChangeVisibly } from "./composerSelection";
+import {
+  type ComposerDictationPreview,
+  ComposerDictationPreviewExtension,
+  setComposerDictationPreview,
+} from "./composerDictationPreview";
 import type { ComposerDraftContextRecords } from "./composerContextPresentation";
 
 export interface ComposerPromptEditorHandle {
@@ -138,6 +143,8 @@ export interface ComposerPromptEditorHandle {
     contextIds: string[];
   };
   isCaretOnVisualEdge: (edge: "start" | "end") => boolean;
+  /** Dictated words not yet final, shown faded and kept out of the draft. */
+  setDictationPreview: (preview: ComposerDictationPreview | null) => void;
 }
 
 export interface ComposerPromptEditorProps {
@@ -840,6 +847,7 @@ function createComposerExtensions(richText: boolean) {
     ComposerCitationExtension,
     ComposerContextReferenceExtension,
     ComposerMarkersExtension,
+    ComposerDictationPreviewExtension,
     ...(richText
       ? [
           ComposerBoldSelectionOnlyExtension,
@@ -1698,6 +1706,9 @@ function ComposerPromptEditorTiptapInner(
         }
       },
       readSnapshot,
+      setDictationPreview: (preview) => {
+        if (editor && !editor.isDestroyed) setComposerDictationPreview(editor.view, preview);
+      },
       isCaretOnVisualEdge: (edge) => {
         const snapshot = readSnapshot();
         if (snapshot.value.length === 0) return true;

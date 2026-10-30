@@ -32,3 +32,14 @@ drops a transcript because the same draft was typed in meanwhile, the
 [composer session](../../apps/web/src/voiceInput/composerVoiceSession.ts) places it
 at the current cursor instead; only a transcript for a draft the composer has left
 is offered for copying.
+
+Live desktop dictation streams to Scribe v2 Realtime and does not use the
+controller, whose model is one transcript per recording. The
+[streaming session](../../apps/web/src/voiceInput/composerStreamingSession.ts)
+places each committed phrase as it arrives and shows the uncommitted one as an
+editor decoration, so unsettled words never enter the draft, its undo history, or
+a send. The main process holds the socket, so the key stays out of the renderer;
+audio and events travel over a MessagePort that lives exactly as long as the
+dictation. The session keeps the PCM it streamed: when the stream fails or drops,
+it transcribes that audio through batch and replaces the live text, so a lost
+connection never loses words.

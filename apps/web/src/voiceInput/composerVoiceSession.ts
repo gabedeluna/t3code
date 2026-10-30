@@ -39,23 +39,39 @@ export type ComposerVoiceError =
   | { readonly kind: "unplaced-transcript"; readonly transcript: string };
 
 type MicrophoneFailure = "microphone-blocked" | "microphone-missing" | "microphone-busy";
+export type VoiceFailure = DesktopVoiceTranscriptionFailureReason | MicrophoneFailure;
 
-const FAILURE_MESSAGES: Record<DesktopVoiceTranscriptionFailureReason | MicrophoneFailure, string> =
-  {
-    "missing-key": "Add your ElevenLabs API key in Settings to dictate.",
-    "invalid-key": "ElevenLabs rejected the API key. Check it in Settings.",
-    "quota-exceeded": "Your ElevenLabs account is out of transcription credits.",
-    "rate-limited": "ElevenLabs is busy. Try again in a moment.",
-    rejected: "ElevenLabs could not read this recording.",
-    unreachable: "Could not reach ElevenLabs. Check your connection.",
-    failed: "ElevenLabs could not transcribe this recording. Try again.",
-    "microphone-blocked": "Microphone access is blocked. Allow it in your system privacy settings.",
-    "microphone-missing": "No microphone was found.",
-    "microphone-busy": "The microphone is in use by another app.",
-  };
+const FAILURE_MESSAGES: Record<VoiceFailure, string> = {
+  "missing-key": "Add your ElevenLabs API key in Settings to dictate.",
+  "invalid-key": "ElevenLabs rejected the API key. Check it in Settings.",
+  "quota-exceeded": "Your ElevenLabs account is out of transcription credits.",
+  "rate-limited": "ElevenLabs is busy. Try again in a moment.",
+  rejected: "ElevenLabs could not read this recording.",
+  unreachable: "Could not reach ElevenLabs. Check your connection.",
+  failed: "ElevenLabs could not transcribe this recording. Try again.",
+  "microphone-blocked": "Microphone access is blocked. Allow it in your system privacy settings.",
+  "microphone-missing": "No microphone was found.",
+  "microphone-busy": "The microphone is in use by another app.",
+};
 const SETTINGS_FAILURES = new Set<string>(["missing-key", "invalid-key"]);
 
-function microphoneFailure(error: unknown): MicrophoneFailure | null {
+export function voiceFailureError(failure: VoiceFailure): ComposerVoiceError {
+  return {
+    kind: "message",
+    message: FAILURE_MESSAGES[failure],
+    tone: "error",
+    opensSettings: SETTINGS_FAILURES.has(failure),
+  };
+}
+
+export const NO_SPEECH_ERROR: ComposerVoiceError = {
+  kind: "message",
+  message: "No speech was detected.",
+  tone: "info",
+  opensSettings: false,
+};
+
+export function microphoneFailure(error: unknown): MicrophoneFailure | null {
   if (!(error instanceof DOMException)) return null;
   if (error.name === "NotAllowedError" || error.name === "SecurityError") {
     return "microphone-blocked";
@@ -90,7 +106,7 @@ export class ComposerVoiceSession {
   private phase: VoiceInputPhase = "idle";
   private selection: { readonly start: number; readonly end: number } | null = null;
   private ownerKey: string | null = null;
-  private failure: DesktopVoiceTranscriptionFailureReason | MicrophoneFailure | null = null;
+  private failure: VoiceFailure | null = null;
   private transcript: string | null = null;
   private holdStartedAt: number | null = null;
 
@@ -246,21 +262,19 @@ export class ComposerVoiceSession {
       return;
     }
     if (transcript === "") {
-      this.onError({
-        kind: "message",
-        message: "No speech was detected.",
-        tone: "info",
-        opensSettings: false,
-      });
+      this.onError(NO_SPEECH_ERROR);
       return;
     }
-    const failure = this.failure;
-    this.onError({
-      kind: "message",
-      message: failure === null ? (state.error ?? "Dictation failed.") : FAILURE_MESSAGES[failure],
-      tone: "error",
-      opensSettings: failure !== null && SETTINGS_FAILURES.has(failure),
-    });
+    this.onError(
+      this.failure === null
+        ? {
+            kind: "message",
+            message: state.error ?? "Dictation failed.",
+            tone: "error",
+            opensSettings: false,
+          }
+        : voiceFailureError(this.failure),
+    );
   }
 
   /**
@@ -271,10 +285,15 @@ export class ComposerVoiceSession {
     const target = this.readTarget();
     if (!target || target.ownerKey !== this.ownerKey) return false;
     const cursor = Math.max(0, Math.min(target.cursor, target.text.length));
-    const before = target.text[cursor - 1];
-    const after = target.text[cursor];
-    const leading = before !== undefined && !/\s/.test(before) ? " " : "";
-    const trailing = after !== undefined && !/\s/.test(after) ? " " : "";
-    return target.insert(cursor, cursor, `${leading}${transcript}${trailing}`);
+    return target.insert(cursor, cursor, spaceInsertion(target.text, cursor, transcript));
   }
+}
+
+/** `words` with the spaces that keep it apart from the draft text on either side of `at`. */
+export function spaceInsertion(draft: string, at: number, words: string): string {
+  const before = draft[at - 1];
+  const after = draft[at];
+  const leading = before !== undefined && !/\s/.test(before) ? " " : "";
+  const trailing = after !== undefined && !/\s/.test(after) ? " " : "";
+  return `${leading}${words}${trailing}`;
 }
