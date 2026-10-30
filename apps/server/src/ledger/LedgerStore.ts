@@ -1,6 +1,7 @@
 import {
   LedgerDocument,
   LedgerItemState,
+  type LedgerSeedTopic,
   LedgerTopicStatus,
   type ThreadId,
 } from "@t3tools/contracts";
@@ -24,7 +25,7 @@ import * as KeyedLock from "@t3tools/shared/KeyedLock";
 
 import * as ServerConfig from "../config.ts";
 import type { LedgerShown } from "./ledgerDelta.ts";
-import { emptyLedger } from "./ledgerDocument.ts";
+import { emptyLedger, seededLedger } from "./ledgerDocument.ts";
 import { type LedgerTurn, recentTurn } from "./ledgerPrompts.ts";
 
 /**
@@ -320,3 +321,20 @@ const make = Effect.gen(function* () {
 });
 
 export const layer = Layer.effect(LedgerStore, make);
+
+/** Starts a new thread's ledger from topics carried over with it, switched on. */
+export const seedThreadLedger = (threadId: ThreadId, topics: ReadonlyArray<LedgerSeedTopic>) =>
+  Effect.serviceOption(LedgerStore).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (store) =>
+          Effect.map(DateTime.now, DateTime.formatIso).pipe(
+            Effect.flatMap((now) =>
+              store.update(threadId, (doc) => seededLedger(doc, topics, now)),
+            ),
+            Effect.asVoid,
+          ),
+      }),
+    ),
+  );

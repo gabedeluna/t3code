@@ -8,6 +8,7 @@ import {
   readScribeReply,
   renderForAgent,
   renderForScribe,
+  seededLedger,
   similarity,
 } from "./ledgerDocument.ts";
 
@@ -160,6 +161,52 @@ describe("applyScribeReply", () => {
     );
     assert.match(renderForScribe(draft, 3), /t1 done todo/);
     assert.notMatch(renderForScribe(draft, 20), /t1/);
+  });
+});
+
+describe("seededLedger", () => {
+  it("numbers a carried-over ledger from 1, switches it on, and the scribe adds after it", () => {
+    const doc = seededLedger(
+      emptyLedger(ThreadId.make("thread-1"), "2026-10-29T00:00:00.000Z"),
+      [
+        {
+          name: "Payments",
+          status: "active",
+          items: [
+            { kind: "decision", state: "recorded", text: "Stripe only" },
+            { kind: "question", state: "open", text: "Refunds in v1?", rec: "No" },
+          ],
+        },
+        {
+          name: "Old spike",
+          status: "done",
+          items: [{ kind: "todo", state: "done", text: "Try it" }],
+        },
+      ],
+      "2026-10-30T00:00:00.000Z",
+    );
+    assert.isTrue(doc.enabled);
+    assert.deepStrictEqual(
+      doc.topics.map((t) => [t.id, t.turn, t.items.map((i) => [i.id, i.turn])]),
+      [
+        [
+          "T1",
+          0,
+          [
+            ["d1", 0],
+            ["q1", 0],
+          ],
+        ],
+        ["T2", 0, [["t1", 0]]],
+      ],
+    );
+    const draft = draftOf(doc);
+    applyScribeReply(
+      draft,
+      { adds: [{ topic: "T1", kind: "question", text: "Which payout schedule?" }] },
+      turn(1),
+    );
+    assert.strictEqual(draft.topics[0]!.items.at(-1)!.id, "q2");
   });
 });
 

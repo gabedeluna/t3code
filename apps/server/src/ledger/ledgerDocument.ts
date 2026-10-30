@@ -2,6 +2,7 @@ import type {
   LedgerDocument,
   LedgerItem,
   LedgerItemKind,
+  LedgerSeedTopic,
   LedgerTopic,
   LedgerTopicStatus,
   ThreadId,
@@ -43,6 +44,33 @@ export const emptyLedger = (threadId: ThreadId, now: string): LedgerDocument => 
   costUsd: 0,
   updatedAt: now,
 });
+
+/** A ledger carried over from elsewhere, numbered from 1 and dated turn 0, switched on. */
+export function seededLedger(
+  doc: LedgerDocument,
+  topics: ReadonlyArray<LedgerSeedTopic>,
+  now: string,
+): LedgerDocument {
+  const next: Record<string, number> = { T: 1, q: 1, d: 1, t: 1 };
+  const take = (prefix: string) => {
+    const n = next[prefix] ?? 1;
+    next[prefix] = n + 1;
+    return `${prefix}${n}`;
+  };
+  return {
+    ...doc,
+    enabled: true,
+    enabledAt: now,
+    topics: topics.map((topic) => ({
+      id: take("T"),
+      name: topic.name,
+      status: topic.status,
+      turn: 0,
+      items: topic.items.map((item) => ({ ...item, id: take(PREFIX[item.kind]), turn: 0 })),
+    })),
+    next,
+  };
+}
 
 export const draftOf = (doc: LedgerDocument): LedgerDraft => structuredClone(doc) as LedgerDraft;
 

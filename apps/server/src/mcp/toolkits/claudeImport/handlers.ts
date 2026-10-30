@@ -11,6 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 
 import * as LedgerLaunchers from "../../../ledger/LedgerLaunchers.ts";
+import * as LedgerStore from "../../../ledger/LedgerStore.ts";
 import * as ThreadLaunch from "../../../orchestration-v2/ThreadLaunchService.ts";
 import * as ManagedProjectFolders from "../../../project/ManagedProjectFolders.ts";
 import * as Project from "../../../project/ProjectService.ts";
@@ -193,6 +194,8 @@ export const layer = McpToolAccess.toLayer(ClaudeImportToolkit, {
         );
         const thread = result.projection.thread;
         yield* LedgerLaunchers.recordLaunch(caller?.id, thread.id);
+        if (input.ledger !== undefined && input.ledger.length > 0)
+          yield* LedgerStore.seedThreadLedger(thread.id, input.ledger);
         return {
           threadId: thread.id,
           link: McpInvocationContext.threadLinkFor(scope, thread.id),

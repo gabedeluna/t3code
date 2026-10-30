@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as Struct from "effect/Struct";
 
 import { IsoDateTime, NonNegativeInt, ThreadId } from "./baseSchemas.ts";
 
@@ -53,6 +54,14 @@ export const LedgerTopic = Schema.Struct({
   items: Schema.Array(LedgerItem),
 });
 export type LedgerTopic = typeof LedgerTopic.Type;
+
+/** A topic carried over from another ledger; T3 numbers it and its items on arrival. */
+export const LedgerSeedTopic = Schema.Struct({
+  name: Schema.String,
+  status: LedgerTopicStatus,
+  items: Schema.Array(LedgerItem.mapFields(Struct.omit(["id", "turn", "closedTurn"]))),
+});
+export type LedgerSeedTopic = typeof LedgerSeedTopic.Type;
 
 /** One step of the working agent's own task list, mirrored as it changes during a turn. */
 export const LedgerLiveTask = Schema.Struct({
