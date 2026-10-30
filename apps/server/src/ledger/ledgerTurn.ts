@@ -43,8 +43,9 @@ const answerText = (value: unknown) =>
       ? value.join(", ")
       : json(value);
 
-/** The scribe keeps the ledger from what happened, never from the ledger's own reads. */
-const isLedgerTool = (name: string) => name.endsWith("t3_ledger_read") || name === "ToolSearch";
+/** The scribe reads what happened, not the ledger's reads or the agent's edits, already in it. */
+const isLedgerTool = (name: string) =>
+  /t3_ledger_(read|update)$/.test(name) || name === "ToolSearch";
 
 /** One short line per tool call, enough to tell what Claude did; questions and answers in full. */
 function toolLines(item: OrchestrationV2TurnItem): ReadonlyArray<string> {

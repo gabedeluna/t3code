@@ -30,6 +30,28 @@ export const shownOf = (doc: LedgerDocument): LedgerShown => ({
   ),
 });
 
+/** `shown` plus what moved from `before` to `after`: changes the agent made itself, so no news to it. */
+export function withOwnChanges(
+  shown: LedgerShown,
+  before: LedgerDocument,
+  after: LedgerDocument,
+): LedgerShown {
+  const was = shownOf(before);
+  const now = shownOf(after);
+  const merged = <S extends string>(
+    seen: Readonly<Record<string, S>>,
+    from: Readonly<Record<string, S>>,
+    to: Readonly<Record<string, S>>,
+  ) => ({
+    ...seen,
+    ...Object.fromEntries(Object.entries(to).filter(([id, value]) => from[id] !== value)),
+  });
+  return {
+    topics: merged(shown.topics, was.topics, now.topics),
+    items: merged(shown.items, was.items, now.items),
+  };
+}
+
 export const sameShown = (a: LedgerShown, b: LedgerShown) => {
   const same = (x: Readonly<Record<string, string>>, y: Readonly<Record<string, string>>) => {
     const keys = Object.keys(x);

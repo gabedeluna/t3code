@@ -139,6 +139,10 @@ export interface ScribeTurnReply {
   readonly adds: ReadonlyArray<ScribeAdd>;
   readonly revisions: ReadonlyArray<ScribeRevision>;
 }
+/** What a thread's own agent may change in its ledger. An add to an unknown topic name opens it. */
+export type LedgerEdits = Partial<
+  Pick<ScribeTurnReply, "closes" | "adds" | "statuses" | "revisions">
+>;
 export interface ScribeSweepReply {
   readonly checks: ReadonlyArray<{
     readonly item: string;

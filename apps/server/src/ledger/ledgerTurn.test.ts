@@ -26,6 +26,11 @@ describe("readTurn", () => {
         item(1, 3, { type: "file_change", fileName: "src/stone.ts" }),
         item(1, 4, { type: "dynamic_tool", toolName: "mcp__t3-code__t3_ledger_read", input: {} }),
         item(1, 6, { type: "reasoning", text: "thinking", streaming: false }),
+        item(1, 7, {
+          type: "dynamic_tool",
+          toolName: "mcp__t3-code__t3_ledger_update",
+          input: { closes: [{ item: "q1", state: "answered", note: "64 px" }] },
+        }),
       ],
     });
     assert.deepStrictEqual(read, {

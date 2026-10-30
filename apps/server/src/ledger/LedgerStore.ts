@@ -24,8 +24,16 @@ import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 
 import * as ServerConfig from "../config.ts";
-import type { LedgerShown } from "./ledgerDelta.ts";
-import { checkedItem, emptyLedger, seededLedger } from "./ledgerDocument.ts";
+import { type LedgerShown, withOwnChanges } from "./ledgerDelta.ts";
+import {
+  type LedgerChange,
+  type LedgerEdits,
+  applyScribeReply,
+  checkedItem,
+  draftOf,
+  emptyLedger,
+  seededLedger,
+} from "./ledgerDocument.ts";
 import { type LedgerTurn, recentTurn } from "./ledgerPrompts.ts";
 
 /**
@@ -45,6 +53,11 @@ export class LedgerStore extends Context.Service<
       itemId: string,
       done: boolean,
     ) => Effect.Effect<LedgerDocument>;
+    /** The thread's own agent changes its ledger, with the scribe's guardrails. None when it is off. */
+    readonly edit: (
+      threadId: ThreadId,
+      edits: LedgerEdits,
+    ) => Effect.Effect<Option.Option<LedgerChange>>;
     /** Reads, changes and saves the ledger under the thread's lock. */
     readonly update: (
       threadId: ThreadId,
@@ -247,6 +260,32 @@ const make = Effect.gen(function* () {
   const setShown: LedgerStore["Service"]["setShown"] = (threadId, value) =>
     locks.withLock(threadId, save(shownPath(threadId), encodeShown(value)));
 
+  // Mid-turn, so its items date from the turn under way. The agent's next note leaves out what
+  // it changed itself; the full ledger it has yet to be shown, it still gets.
+  const edit: LedgerStore["Service"]["edit"] = Effect.fn("LedgerStore.edit")(
+    function* (threadId, edits) {
+      const result: { before?: LedgerDocument; change?: LedgerChange } = {};
+      const after = yield* update(threadId, (current) => {
+        if (!current.enabled) return current;
+        const draft = draftOf(current);
+        result.before = current;
+        result.change = applyScribeReply(draft, edits, {
+          turn: current.turns + 1,
+          sweep: false,
+          source: "user",
+        });
+        return result.change.applied.length === 0 ? current : (draft as LedgerDocument);
+      });
+      const { before, change } = result;
+      if (before === undefined || change === undefined) return Option.none();
+      const seen = yield* shown(threadId);
+      if (Option.isSome(seen) && after !== before) {
+        yield* setShown(threadId, withOwnChanges(seen.value, before, after));
+      }
+      return Option.some(change);
+    },
+  );
+
   const remove: LedgerStore["Service"]["remove"] = (threadId) =>
     locks.withLock(
       threadId,
@@ -318,6 +357,7 @@ const make = Effect.gen(function* () {
     get,
     setEnabled,
     checkItem,
+    edit,
     update,
     recentTurns,
     appendTurn,
