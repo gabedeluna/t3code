@@ -1000,6 +1000,8 @@ function ComposerPromptEditorTiptapInner(
   const [openCitation, setOpenCitation] = useState<OpenCitationComment | null>(null);
   const citationDraftRef = useRef<{ key: string; comment: string } | null>(null);
   const [isEmpty, setIsEmpty] = useState(value.length === 0);
+  // Faded dictation is a decoration, so the document stays empty while it shows.
+  const [showsDictationPreview, setShowsDictationPreview] = useState(false);
 
   const citationCommentActions = {
     openComment: openCitation,
@@ -1708,6 +1710,7 @@ function ComposerPromptEditorTiptapInner(
       readSnapshot,
       setDictationPreview: (preview) => {
         if (editor && !editor.isDestroyed) setComposerDictationPreview(editor.view, preview);
+        setShowsDictationPreview(preview !== null && preview.text !== "");
       },
       isCaretOnVisualEdge: (edge) => {
         const snapshot = readSnapshot();
@@ -1824,7 +1827,7 @@ function ComposerPromptEditorTiptapInner(
               onCopyCapture={(event) => handleCopyCut(event, false)}
               onCutCapture={(event) => handleCopyCut(event, true)}
             />
-            {isEmpty && contextRecords.size === 0 && placeholder ? (
+            {isEmpty && !showsDictationPreview && contextRecords.size === 0 && placeholder ? (
               <div
                 className={cn(
                   "pointer-events-none absolute inset-0 leading-relaxed text-placeholder",
