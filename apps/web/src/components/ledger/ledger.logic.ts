@@ -130,17 +130,19 @@ export interface LedgerTopicSections {
 
 /**
  * A topic's items by kind. Closed items are left out unless showClosed is set, and then each
- * closed item stays under its own kind, after the open ones.
+ * closed item stays under its own kind, after the open ones. Decisions pile up over a long
+ * thread, so they run newest first.
  */
 export function topicSections(topic: LedgerTopic, showClosed: boolean): LedgerTopicSections {
-  const pick = (kind: LedgerItem["kind"]) => {
-    const items = topic.items.filter((item) => item.kind === kind);
+  const pick = (kind: LedgerItem["kind"], newestFirst = false) => {
+    const kept = topic.items.filter((item) => item.kind === kind);
+    const items = newestFirst ? kept.toReversed() : kept;
     const open = items.filter((item) => !isClosedItem(item));
     return showClosed ? [...open, ...items.filter(isClosedItem)] : open;
   };
   return {
     questions: pick("question"),
-    decided: pick("decision"),
+    decided: pick("decision", true),
     todos: pick("todo"),
     closedCount: topicCounts(topic).closed,
   };

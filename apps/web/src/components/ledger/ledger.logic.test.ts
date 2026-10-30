@@ -81,12 +81,12 @@ describe("topic counts", () => {
   it("keeps closed items out of the Open view and after the open ones in All", () => {
     const attack = topicNamed("Attack slots");
     const open = topicSections(attack, false);
-    expect(open.decided.map((item) => item.id)).toEqual(["d1", "d2"]);
+    expect(open.decided.map((item) => item.id)).toEqual(["d2", "d1"]);
     expect(open.todos.map((item) => item.id)).toEqual(["t1", "t2"]);
     expect(open.closedCount).toBe(2);
 
     const all = topicSections(attack, true);
-    expect(all.decided.map((item) => item.id)).toEqual(["d1", "d2", "d3"]);
+    expect(all.decided.map((item) => item.id)).toEqual(["d2", "d1", "d3"]);
     expect(all.todos.map((item) => item.id)).toEqual(["t1", "t2", "t3"]);
   });
 });

@@ -512,8 +512,10 @@ function TopicGroup({
 }) {
   const [expanded, setExpanded] = useState(() => topicStartsExpanded(topic));
   const [revealClosed, setRevealClosed] = useState(false);
+  const [decidedShown, setDecidedShown] = useState(DECIDED_SHOWN);
   const counts = topicCounts(topic);
   const sections = topicSections(topic, showClosed || revealClosed);
+  const decidedHidden = sections.decided.length - decidedShown;
   const openCount = counts.openQuestions + counts.openTodos;
   const hasItems =
     sections.questions.length > 0 || sections.decided.length > 0 || sections.todos.length > 0;
@@ -556,7 +558,17 @@ function TopicGroup({
             <TopicItemList label="Questions" items={sections.questions} />
           ) : null}
           {sections.decided.length > 0 ? (
-            <TopicItemList label="Decided" items={sections.decided} />
+            <TopicItemList label="Decided" items={sections.decided.slice(0, decidedShown)} />
+          ) : null}
+          {decidedHidden > 0 ? (
+            <FoldButton
+              fewer={false}
+              onClick={() => setDecidedShown(decidedShown + DECIDED_STEP)}
+            >{`Show ${Math.min(DECIDED_STEP, decidedHidden)} more (${decidedHidden} older)`}</FoldButton>
+          ) : sections.decided.length > DECIDED_SHOWN ? (
+            <FoldButton fewer onClick={() => setDecidedShown(DECIDED_SHOWN)}>
+              Show fewer
+            </FoldButton>
           ) : null}
           {sections.todos.length > 0 ? (
             <TopicItemList label="To-dos" items={sections.todos} />
@@ -565,23 +577,41 @@ function TopicGroup({
             <p className="px-2 py-1 text-2xs text-muted-foreground">Nothing recorded yet</p>
           ) : null}
           {!showClosed && sections.closedCount > 0 ? (
-            <button
-              type="button"
-              aria-expanded={revealClosed}
+            <FoldButton
+              fewer={revealClosed}
+              expanded={revealClosed}
               onClick={() => setRevealClosed(!revealClosed)}
-              className="flex h-7 w-fit cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium text-muted-foreground/75 hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
-              {revealClosed ? (
-                <MinusIcon aria-hidden className="size-3" />
-              ) : (
-                <PlusIcon aria-hidden className="size-3" />
-              )}
               {revealClosed ? "Hide closed" : `Show ${sections.closedCount} closed`}
-            </button>
+            </FoldButton>
           ) : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** A long topic shows its newest decisions; the rest open a page at a time. */
+const DECIDED_SHOWN = 3;
+const DECIDED_STEP = 10;
+
+function FoldButton(props: {
+  readonly fewer: boolean;
+  readonly expanded?: boolean;
+  readonly onClick: () => void;
+  readonly children: ReactNode;
+}) {
+  const Icon = props.fewer ? MinusIcon : PlusIcon;
+  return (
+    <button
+      type="button"
+      aria-expanded={props.expanded}
+      onClick={props.onClick}
+      className="flex h-7 w-fit cursor-pointer items-center gap-2 rounded-lg px-2 text-xs font-medium text-muted-foreground/75 hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+    >
+      <Icon aria-hidden className="size-3" />
+      {props.children}
+    </button>
   );
 }
 

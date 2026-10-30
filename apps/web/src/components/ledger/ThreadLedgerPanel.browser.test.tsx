@@ -35,6 +35,32 @@ describe("LedgerPanel", () => {
     await expect.element(topics.getByText("Add slot claims")).toBeVisible();
   });
 
+  it("shows a topic's newest decisions and pages through the older ones", async () => {
+    const decisions = Array.from({ length: 15 }, (_, index) => ({
+      id: `d${index + 1}`,
+      kind: "decision" as const,
+      state: "recorded" as const,
+      text: `Decision ${index + 1}`,
+      turn: index + 1,
+    }));
+    const ledger = {
+      ...BUSY_LEDGER,
+      topics: BUSY_LEDGER.topics.map((topic) =>
+        topic.name === "Attack slots" ? { ...topic, items: decisions } : topic,
+      ),
+    };
+    await using screen = await render(panel({ ledger }));
+
+    await expect.element(screen.getByText("Decision 13")).toBeVisible();
+    await expect.element(screen.getByText("Decision 12")).not.toBeInTheDocument();
+    await screen.getByRole("button", { name: "Show 10 more (12 older)" }).click();
+    await expect.element(screen.getByText("Decision 3", { exact: true })).toBeVisible();
+    await screen.getByRole("button", { name: "Show 2 more (2 older)" }).click();
+    await expect.element(screen.getByText("Decision 1", { exact: true })).toBeVisible();
+    await screen.getByRole("button", { name: "Show fewer" }).click();
+    await expect.element(screen.getByText("Decision 12")).not.toBeInTheDocument();
+  });
+
   it("sends the recommendation, but never along with a message in progress", async () => {
     let prompt = "";
     const insertTextAtEnd = vi.fn(() => true);
