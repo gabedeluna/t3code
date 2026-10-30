@@ -1145,6 +1145,8 @@ export const StorageCleanupSettings = Schema.Struct({
 });
 export type StorageCleanupSettings = typeof StorageCleanupSettings.Type;
 
+export const LedgerSweepEvery = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }));
+
 export const ServerSettings = Schema.Struct({
   // Null means unmigrated; empty is authoritative and must not resurrect cleared preferences.
   favorites: Schema.NullOr(ModelFavorites).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
@@ -1296,6 +1298,16 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   reviewGuideInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Claude model aliases for the thread ledger's scribe: one call per turn, a sweep every N turns. */
+  ledgerTurnModel: TrimmedNonEmptyString.pipe(Schema.withDecodingDefault(Effect.succeed("haiku"))),
+  ledgerSweepModel: TrimmedNonEmptyString.pipe(
+    Schema.withDecodingDefault(Effect.succeed("sonnet")),
+  ),
+  ledgerSweepEvery: LedgerSweepEvery.pipe(Schema.withDecodingDefault(Effect.succeed(8))),
+  /** How the scribe's prompts name the user. */
+  ledgerUserName: TrimmedNonEmptyString.pipe(
+    Schema.withDecodingDefault(Effect.succeed("the user")),
+  ),
 
   pullRequestMergeMethod: Schema.NullOr(PullRequestMergeMethod).pipe(
     Schema.withDecodingDefault(Effect.succeed(null)),
@@ -1610,6 +1622,10 @@ export const ServerSettingsPatch = Schema.Struct({
   reviewGuidesEnabled: Schema.optionalKey(Schema.Boolean),
   reviewGuideModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
   reviewGuideInstructions: Schema.optionalKey(TrimmedString),
+  ledgerTurnModel: Schema.optionalKey(TrimmedNonEmptyString),
+  ledgerSweepModel: Schema.optionalKey(TrimmedNonEmptyString),
+  ledgerSweepEvery: Schema.optionalKey(LedgerSweepEvery),
+  ledgerUserName: Schema.optionalKey(TrimmedNonEmptyString),
   pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
   observability: Schema.optionalKey(
     Schema.Struct({

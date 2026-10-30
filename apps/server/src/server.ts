@@ -6,6 +6,12 @@ import * as StorageCleanup from "./storageCleanup.ts";
 import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
 import * as PullRequestWatchReactor from "./orchestration-v2/PullRequestWatchReactor.ts";
 import * as DelegatedTaskQuestionReactor from "./orchestration-v2/DelegatedTaskQuestionReactor.ts";
+import * as LedgerLaunchers from "./ledger/LedgerLaunchers.ts";
+import * as LedgerReactor from "./ledger/LedgerReactor.ts";
+import * as LedgerStore from "./ledger/LedgerStore.ts";
+import * as LedgerTurnContext from "./ledger/LedgerTurnContext.ts";
+import * as LedgerWorkers from "./ledger/LedgerWorkers.ts";
+import * as LedgerScribeRunner from "./ledger/ScribeRunner.ts";
 // Effect wraps this raw Node HTTP server after its startup and write-error guards attach.
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeHttp from "node:http";
@@ -529,6 +535,8 @@ const layerOrchestrationV2Runtime = RuntimeLayer.layerProduction.pipe(
       Layer.provide(RuntimeLayer.layerProjectService),
     ),
   ),
+  // Layers are shared, so each turn's ledger note reads the store the reactor keeps.
+  Layer.provide(LedgerTurnContext.layer.pipe(Layer.provide(LedgerStore.layer))),
 );
 
 const layerOrchestrationApplication = CheckpointDiffQuery.layer.pipe(
@@ -620,11 +628,24 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
       yield* service.start();
     }),
   ).pipe(Layer.provide(DelegatedTaskQuestionReactor.layer), Layer.provide(ProjectionStoreV2.layer)),
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      const service = yield* LedgerReactor.LedgerReactor;
+      yield* service.start();
+    }),
+  ).pipe(
+    Layer.provide(LedgerReactor.layer),
+    Layer.provide(Layer.merge(ProjectionStoreV2.layer, LedgerScribeRunner.layer)),
+  ),
   ProviderUsageLimitsIngestion.layer,
   layerProviderInstallationRefresh,
   ReplayMarkers.layer,
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
 ).pipe(
+  // The workers rollup, for the WebSocket feed and t3_ledger_workers.
+  Layer.provideMerge(LedgerWorkers.layer.pipe(Layer.provide(ProjectionStoreV2.layer))),
+  // One store for the reactor, the WebSocket feed and t3_ledger_read.
+  Layer.provideMerge(Layer.merge(LedgerStore.layer, LedgerLaunchers.layer)),
   Layer.provideMerge(layerOrchestrationApplication),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
   Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),

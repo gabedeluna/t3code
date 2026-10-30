@@ -10,6 +10,7 @@ import {
   type ModelSelection,
   type RuntimeMode,
   type OrchestrationV2ThreadShell,
+  ThreadId,
 } from "@t3tools/contracts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -23,6 +24,7 @@ import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 
 import * as DocumentText from "../../../provider/DocumentText.ts";
+import * as LedgerLaunchers from "../../../ledger/LedgerLaunchers.ts";
 import * as ThreadLaunch from "../../../orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadManagement from "../../../orchestration-v2/ThreadManagementService.ts";
 import * as ServerConfig from "../../../config.ts";
@@ -34,6 +36,7 @@ import * as GitVcsDriver from "../../../vcs/GitVcsDriver.ts";
 import * as VcsProcess from "../../../vcs/VcsProcess.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
+import { liveThreadShell } from "../../McpToolAccess.testkit.ts";
 import * as ProjectHandlers from "./handlers.ts";
 import { ProjectToolkit } from "./tools.ts";
 
@@ -48,6 +51,10 @@ const clientLaunchHarness = (input: {
   readonly workspaceRoot?: string;
   readonly checkWorktreeBase?: ThreadLaunch.ThreadLaunchService["Service"]["checkWorktreeBase"];
   readonly webOrigin?: string;
+  /** A thread that launches, instead of a client outside any thread. */
+  readonly caller?: ThreadId;
+  /** Launcher links recorded, when the ledger is there to record them. */
+  readonly links?: Array<readonly [ThreadId, ThreadId]>;
 }) => {
   const projectId = ProjectId.make("project:client-target");
   const modelSelection = {
@@ -80,7 +87,14 @@ const clientLaunchHarness = (input: {
     Layer.succeed(McpInvocationContext.McpInvocationContext, {
       environmentId: EnvironmentId.make("environment"),
       requestNamespace: "client:session-1",
-      thread: undefined,
+      thread:
+        input.caller === undefined
+          ? undefined
+          : {
+              threadId: input.caller,
+              providerSessionId: "provider:launcher",
+              providerInstanceId: ProviderInstanceId.make("codex"),
+            },
       client: {
         sessionId: "session-1",
         label: "Claude Code",
@@ -93,6 +107,7 @@ const clientLaunchHarness = (input: {
     Layer.mock(ThreadManagement.ThreadManagementService)({
       // A thread exists once a launch started it.
       getThreadShell: (threadId) => {
+        if (threadId === input.caller) return Effect.succeed(liveThreadShell(threadId));
         const launch = input.launched.find((candidate) => candidate.threadId === threadId);
         return Effect.succeed(
           launch === undefined
@@ -138,6 +153,11 @@ const clientLaunchHarness = (input: {
         ),
     }),
     Layer.mock(PeerForwarding.PeerForwarding)({}),
+    input.links === undefined
+      ? Layer.empty
+      : Layer.mock(LedgerLaunchers.LedgerLaunchers)({
+          record: (launcher, worker) => Effect.sync(() => input.links?.push([launcher, worker])),
+        }),
     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/projects" }),
     DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer)),
   ).pipe(
@@ -241,6 +261,31 @@ it.effect(
       });
       expect(fromSettings.launched[0]?.modelSelection).toEqual(overrideModel);
     }),
+);
+
+it.effect("a thread that launches another is recorded as its launcher, once per thread", () =>
+  Effect.gen(function* () {
+    const caller = ThreadId.make("thread:director");
+    const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
+    const links: Array<readonly [ThreadId, ThreadId]> = [];
+    const { projectId, dependencies } = clientLaunchHarness({
+      runtimeModeCeiling: "full-access",
+      launched,
+      caller,
+      links,
+    });
+    const toolkit = yield* ProjectToolkit.pipe(
+      Effect.provide(
+        McpToolAccess.HandlersLayer.layer(ProjectHandlers.layer).pipe(Layer.provide(dependencies)),
+      ),
+    );
+    const result = yield* toolkit
+      .handle("t3_thread_launch", { title: "Worker", message: "Go", projectId })
+      .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
+    expect(result.at(-1)?.result).toMatchObject({ threadId: launched[0]?.threadId });
+    expect(launched[0]?.initialMessage?.senderThreadId).toBe(caller);
+    expect(links).toEqual([[caller, launched[0]?.threadId]]);
+  }),
 );
 
 it.effect("a launch retried with the same clientRequestId replays the first one", () =>

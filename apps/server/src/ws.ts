@@ -219,6 +219,8 @@ import { projectMutationOperation } from "./project/ProjectMutation.ts";
 import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
 import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
+import * as LedgerStore from "./ledger/LedgerStore.ts";
+import * as LedgerWorkers from "./ledger/LedgerWorkers.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
@@ -1299,6 +1301,8 @@ export const layerWsRpc = (
       const usage = yield* UsageService.UsageService;
       const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
       const worktreeSetupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
+      const ledgerStore = yield* LedgerStore.LedgerStore;
+      const ledgerWorkers = yield* LedgerWorkers.LedgerWorkers;
       const projectCloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
       const repositoryIdentityResolver =
         yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
@@ -2928,6 +2932,10 @@ export const layerWsRpc = (
           worktreeSetupTracker
             .cancel(input.threadId)
             .pipe(Effect.map((cancelled) => ({ cancelled }))),
+        [WS_METHODS.subscribeThreadLedger]: (input) => ledgerStore.stream(input.threadId),
+        [WS_METHODS.setThreadLedgerEnabled]: (input) =>
+          ledgerStore.setEnabled(input.threadId, input.enabled),
+        [WS_METHODS.subscribeThreadWorkers]: (input) => ledgerWorkers.stream(input.threadId),
         [WS_METHODS.vcsRefreshStatus]: (input) =>
           vcsStatusBroadcaster.refreshStatus(input.cwd, { localOnly: input.localOnly ?? false }),
         [WS_METHODS.vcsPull]: (input) =>

@@ -37,6 +37,7 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
+import * as LedgerTurnContext from "../ledger/LedgerTurnContext.ts";
 import * as McpSessionRegistry from "../mcp/McpSessionRegistry.ts";
 import * as McpAppModelContext from "../mcpApps/McpAppModelContext.ts";
 import * as PreviewAgentActivity from "../preview/PreviewAgentActivity.ts";
@@ -611,6 +612,7 @@ export const layer: Layer.Layer<
     const previewAgentActivity = yield* PreviewAgentActivity.PreviewAgentActivity;
     const turnItemPositions = yield* TurnItemPositionStore.TurnItemPositionStoreV2;
     const finalizationObserver = yield* RunFinalizationService.RunFinalizationObserver;
+    const ledgerTurnContext = yield* LedgerTurnContext.LedgerTurnContext;
 
     const writeFinalRunEvents = Effect.fn("RunExecutionService.writeFinalRunEvents")(
       function* (input: {
@@ -1608,7 +1610,7 @@ export const layer: Layer.Layer<
           }),
         );
         yield* touchMcpCredential;
-        const appContext = (yield* mcpAppModelContext
+        const mcpAppContext = (yield* mcpAppModelContext
           .forThread(input.run.threadId)
           .pipe(
             Effect.catch((cause) =>
@@ -1623,6 +1625,11 @@ export const layer: Layer.Layer<
           key: `mcp_app_${entry.itemId.replace(/[^\w.-]/g, "_")}`,
           text: entry.text,
         }));
+        // What changed in the thread's ledger since the agent's last turn, when it is on.
+        const appContext = [
+          ...mcpAppContext,
+          ...(yield* ledgerTurnContext.forTurn(input.run.threadId, input.message)),
+        ];
         const turnInput = {
           appThread: input.appThread,
           threadId: input.run.threadId,

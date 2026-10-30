@@ -149,6 +149,11 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     useRightPanelStore.getState().open(activeThreadRef, "pull-requests");
   };
   const addPullRequestsSurfaceStable = useStableCallback(addPullRequestsSurface);
+  const addLedgerSurface = () => {
+    if (!activeThreadRef || !isServerThread) return;
+    useRightPanelStore.getState().open(activeThreadRef, "ledger");
+  };
+  const addLedgerSurfaceStable = useStableCallback(addLedgerSurface);
   const addDeviceSurface = () => {
     if (!activeThreadRef) return;
     if (!deviceState.onboardingCompleted || deviceState.hostStatus === "disabled") {
@@ -341,6 +346,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     addDeviceSurfaceStable,
     addDiffSurfaceStable,
     addFilesSurfaceStable,
+    addLedgerSurfaceStable,
     addPullRequestSurfaceStable,
     addPullRequestsSurfaceStable,
     closePreviewPanelStable,

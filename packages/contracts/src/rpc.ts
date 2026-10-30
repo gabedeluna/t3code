@@ -123,6 +123,13 @@ import {
   WorktreeSetupSubscribeInput,
 } from "./worktreeSetup.ts";
 import {
+  LedgerDocument,
+  ThreadLedgerSetEnabledInput,
+  ThreadLedgerSubscribeInput,
+  ThreadWorkers,
+  ThreadWorkersSubscribeInput,
+} from "./ledger.ts";
+import {
   GitActionProgressEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
@@ -592,6 +599,9 @@ export const WS_METHODS = {
   subscribeVcsStatus: "subscribeVcsStatus",
   subscribeWorktreeSetup: "subscribeWorktreeSetup",
   worktreeSetupCancel: "worktreeSetup.cancel",
+  subscribeThreadLedger: "subscribeThreadLedger",
+  setThreadLedgerEnabled: "threadLedger.setEnabled",
+  subscribeThreadWorkers: "subscribeThreadWorkers",
   subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
   subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
@@ -1443,6 +1453,28 @@ const WsWorktreeSetupCancelRpc = Rpc.make(WS_METHODS.worktreeSetupCancel, {
   error: EnvironmentAuthorizationError,
 });
 
+/** The thread's ledger now, then each change; an empty one that is off when it has none. */
+const WsSubscribeThreadLedgerRpc = Rpc.make(WS_METHODS.subscribeThreadLedger, {
+  payload: ThreadLedgerSubscribeInput,
+  success: LedgerDocument,
+  error: EnvironmentAuthorizationError,
+  stream: true,
+});
+
+const WsSetThreadLedgerEnabledRpc = Rpc.make(WS_METHODS.setThreadLedgerEnabled, {
+  payload: ThreadLedgerSetEnabledInput,
+  success: LedgerDocument,
+  error: EnvironmentAuthorizationError,
+});
+
+/** The threads this thread launched, each from its ledger and status, now and on each change. */
+const WsSubscribeThreadWorkersRpc = Rpc.make(WS_METHODS.subscribeThreadWorkers, {
+  payload: ThreadWorkersSubscribeInput,
+  success: ThreadWorkers,
+  error: EnvironmentAuthorizationError,
+  stream: true,
+});
+
 const WsGitRunStackedActionRpc = Rpc.make(WS_METHODS.gitRunStackedAction, {
   payload: GitRunStackedActionInput,
   success: GitActionProgressEvent,
@@ -2072,6 +2104,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsSubscribeVcsStatusRpc,
   WsSubscribeWorktreeSetupRpc,
   WsWorktreeSetupCancelRpc,
+  WsSubscribeThreadLedgerRpc,
+  WsSetThreadLedgerEnabledRpc,
+  WsSubscribeThreadWorkersRpc,
   WsVcsPullRpc,
   WsVcsRefreshStatusRpc,
   WsGitRunStackedActionRpc,

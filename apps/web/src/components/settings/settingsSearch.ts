@@ -320,7 +320,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Thread details",
     to: "/settings/appearance",
     searchTerms: [
-      "customize show hide panel card environment editor scripts branch pull request git changes servers automations lineage usage limits 5 hour weekly quota tokens context window",
+      "customize show hide panel card environment editor scripts branch pull request git changes ledger servers automations lineage usage limits 5 hour weekly quota tokens context window",
     ],
   },
   {
@@ -671,6 +671,36 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     scope: "project-defaults",
     searchTerms: ["generated thread titles prompt custom style naming rename regenerate"],
+  },
+  {
+    id: "ledger-turn-model",
+    title: "Reads each turn",
+    to: "/settings/threads",
+    scope: "environment-defaults",
+    environmentOnly: true,
+    searchTerms: ["ledger scribe model haiku topics questions decisions to-dos record"],
+  },
+  {
+    id: "ledger-sweep",
+    title: "Cleanup pass",
+    to: "/settings/threads",
+    scope: "environment-defaults",
+    environmentOnly: true,
+    searchTerms: ["ledger sweep cleanup model sonnet every turns recheck open items"],
+  },
+  {
+    id: "ledger-user-name",
+    title: "Your name in the ledger",
+    to: "/settings/threads",
+    scope: "environment-defaults",
+    environmentOnly: true,
+    searchTerms: ["ledger scribe name user refer"],
+  },
+  {
+    id: "ledger-thread-details",
+    title: "Show ledger in thread details",
+    to: "/settings/threads",
+    searchTerms: ["ledger thread details card questions topics"],
   },
   {
     id: "app-version",

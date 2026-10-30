@@ -46,6 +46,7 @@ import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter"
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderEventIngestor from "./ProviderEventIngestor.ts";
 import * as McpAppModelContext from "../mcpApps/McpAppModelContext.ts";
+import * as LedgerTurnContext from "../ledger/LedgerTurnContext.ts";
 import * as PreviewAgentActivity from "../preview/PreviewAgentActivity.ts";
 import * as RunExecutionService from "./RunExecutionService.ts";
 import * as RunFinalizationService from "./RunFinalizationService.ts";
@@ -823,7 +824,7 @@ it.effect("rechecks run ownership immediately before calling the provider", () =
   }).pipe(Effect.provide(layerRunExecutionTest)),
 );
 
-it.effect("passes the thread's MCP app context to the provider under a safe key", () =>
+it.effect("passes MCP app context and the ledger note to the provider safely", () =>
   Effect.gen(function* () {
     const runExecution = yield* RunExecutionService.RunExecutionServiceV2;
     const started = yield* Deferred.make<ProviderAdapter.ProviderAdapterV2TurnInput>();
@@ -868,12 +869,17 @@ it.effect("passes the thread's MCP app context to the provider under a safe key"
         creationSource: "web",
       },
       modelSelection: { instanceId: providerInstanceId, model: "gpt-5.4" },
-      runtimePolicy: { runtimeMode: "full-access", interactionMode: "default", cwd: process.cwd() },
+      runtimePolicy: {
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        cwd: process.cwd(),
+      },
     });
 
     const input = yield* Deferred.await(started);
     assert.deepEqual(input.appContext, [
       { key: "mcp_app_turn-item_provider_codex_native-item_call-1", text: "2 overdue" },
+      { key: "t3_ledger", text: "- done t1" },
     ]);
   }).pipe(
     Effect.provide(
@@ -881,6 +887,14 @@ it.effect("passes the thread's MCP app context to the provider under a safe key"
         Layer.provide(
           Layer.mergeAll(
             PreviewAgentActivity.layer,
+            Layer.succeed(LedgerTurnContext.LedgerTurnContext, {
+              forTurn: (threadId) =>
+                Effect.succeed(
+                  threadId === "thread:run-execution-app-context"
+                    ? [{ key: "t3_ledger", text: "- done t1" }]
+                    : [],
+                ),
+            }),
             Layer.mock(McpAppModelContext.McpAppModelContext)({
               forThread: () =>
                 Effect.succeed([

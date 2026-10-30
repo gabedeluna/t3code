@@ -1,6 +1,7 @@
 import * as DocumentText from "../../provider/DocumentText.ts";
 import { makeProviderTextDeltaCoalescer } from "./ProviderTextDeltaCoalescer.ts";
 import { claudeTaskOutputRoot, tailClaudeTaskOutput } from "./ClaudeTaskOutputTail.ts";
+import { withClaudeTurnContext } from "./claudeTurnContext.ts";
 import {
   dynamicToolTitle,
   formatReadToolLabel,
@@ -1689,6 +1690,8 @@ export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
   "mcp__t3-code__t3_environment_links",
   "mcp__t3-code__html_preview",
   "mcp__t3-code__html_render",
+  "mcp__t3-code__t3_ledger_read",
+  "mcp__t3-code__t3_ledger_workers",
 ];
 
 // T3 waits can block for an hour; exceed Claude's default 60 s timeout.
@@ -10121,6 +10124,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                     skills: yield* userInvocableSkills(turnInput.runtimePolicy.cwd),
                     uuid: promptUuid,
                   }).pipe(
+                    Effect.map((message) => withClaudeTurnContext(message, turnInput.appContext)),
                     Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
                     Effect.provideService(Path.Path, path),
                   );
