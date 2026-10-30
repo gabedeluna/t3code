@@ -282,7 +282,8 @@ contextBridge.exposeInMainWorld("desktopBridge", {
       port2.onmessage = (event) => onEvent(event.data);
       ipcRenderer.postMessage(IpcChannels.VOICE_INPUT_OPEN_STREAM_CHANNEL, options, [port1]);
       return {
-        sendAudio: (pcm) => port2.postMessage({ _tag: "audio", pcm }, [pcm]),
+        // Copied: Electron delivers a message that transfers an ArrayBuffer to the main process empty.
+        sendAudio: (pcm) => port2.postMessage({ _tag: "audio", pcm }),
         finish: () => port2.postMessage({ _tag: "finish" }),
         close: () => port2.close(),
       };
