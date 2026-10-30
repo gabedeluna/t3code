@@ -200,6 +200,10 @@ function LedgerOnView(props: {
   const showClosed = view === "all";
   const needs = needsYou(ledger);
   const live = liveTopics(ledger);
+  // Filed under its topic mid-turn; until then the task list stands on its own.
+  const tasksTopic = live.some((topic) => topic.id === ledger.liveTopic)
+    ? ledger.liveTopic
+    : undefined;
   const closed = closedTopics(ledger);
   const progress = liveTaskProgress(ledger.liveTasks);
   const empty = ledger.topics.length === 0 && ledger.liveTasks.length === 0;
@@ -258,7 +262,7 @@ function LedgerOnView(props: {
       ) : (
         <ScrollArea scrollFade className="min-h-0 flex-1">
           <div className="flex flex-col gap-0.5 px-1.5 pt-0.5 pb-1.5">
-            {ledger.liveTasks.length > 0 ? (
+            {ledger.liveTasks.length > 0 && tasksTopic === undefined ? (
               <LedgerSection
                 label="Working now"
                 count={`${progress.completed}/${progress.total}`}
@@ -297,7 +301,12 @@ function LedgerOnView(props: {
               >
                 <div className="flex flex-col gap-0.5">
                   {live.map((topic) => (
-                    <TopicGroup key={topic.id} topic={topic} showClosed={showClosed} />
+                    <TopicGroup
+                      key={topic.id}
+                      topic={topic}
+                      showClosed={showClosed}
+                      tasks={topic.id === tasksTopic ? ledger.liveTasks : undefined}
+                    />
                   ))}
                 </div>
               </LedgerSection>
@@ -357,6 +366,23 @@ function LedgerSection(props: {
   );
 }
 
+/** The agent's task list, shown under the topic it was filed under whether or not that is open. */
+function TopicLiveTasks({ tasks }: { tasks: ReadonlyArray<LedgerLiveTask> }) {
+  const progress = liveTaskProgress(tasks);
+  return (
+    <div className="flex flex-col pb-1 pl-8">
+      <span className="px-2 pt-1 text-2xs font-medium text-muted-foreground">
+        Working now · {progress.completed}/{progress.total}
+      </span>
+      <ul className="m-0 list-none p-0">
+        {tasks.map((task) => (
+          <LiveTaskRow key={task.id} task={task} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function LiveTaskRow({ task }: { task: LedgerLiveTask }) {
   return (
     <li className="flex gap-2.5 rounded-lg px-2 py-1">
@@ -413,7 +439,15 @@ function NeedRow({ item, topic }: { item: LedgerItem; topic: LedgerTopic }) {
   );
 }
 
-function TopicGroup({ topic, showClosed }: { topic: LedgerTopic; showClosed: boolean }) {
+function TopicGroup({
+  topic,
+  showClosed,
+  tasks,
+}: {
+  topic: LedgerTopic;
+  showClosed: boolean;
+  tasks?: ReadonlyArray<LedgerLiveTask> | undefined;
+}) {
   const [expanded, setExpanded] = useState(() => topicStartsExpanded(topic));
   const [revealClosed, setRevealClosed] = useState(false);
   const counts = topicCounts(topic);
@@ -453,6 +487,7 @@ function TopicGroup({ topic, showClosed }: { topic: LedgerTopic; showClosed: boo
           )}
         />
       </button>
+      {tasks !== undefined && tasks.length > 0 ? <TopicLiveTasks tasks={tasks} /> : null}
       {expanded ? (
         <div className="flex flex-col pb-1 pl-8">
           {sections.questions.length > 0 ? (

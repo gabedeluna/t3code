@@ -21,12 +21,21 @@ import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { missedRuns } from "./ledgerCatchUp.ts";
-import { type LedgerDraft, applyScribeReply, draftOf, readScribeReply } from "./ledgerDocument.ts";
+import {
+  type LedgerDraft,
+  applyScribeReply,
+  draftOf,
+  filedLiveTasks,
+  readScribeReply,
+} from "./ledgerDocument.ts";
 import {
   SWEEP_REPLY_SCHEMA,
+  TASK_TOPIC_SCHEMA,
+  TASK_TOPIC_SYSTEM,
   TURN_REPLY_SCHEMA,
   scribeSystemPrompt,
   sweepPrompt,
+  taskTopicPrompt,
   turnPrompt,
 } from "./ledgerPrompts.ts";
 import * as LedgerLaunchers from "./LedgerLaunchers.ts";
@@ -68,10 +77,11 @@ const withoutScribing = (doc: LedgerDocument): LedgerDocument => {
 };
 
 const sameTasks = (a: LedgerDocument["liveTasks"], b: LedgerDocument["liveTasks"]) =>
-  a.length === b.length &&
-  a.every(
-    (task, i) => task.id === b[i]!.id && task.text === b[i]!.text && task.status === b[i]!.status,
-  );
+  sameTaskList(a, b) && a.every((task, i) => task.status === b[i]!.status);
+
+/** The same steps, whatever their progress: a new list is filed under a topic, a tick is not. */
+const sameTaskList = (a: LedgerDocument["liveTasks"], b: LedgerDocument["liveTasks"]) =>
+  a.length === b.length && a.every((task, i) => task.id === b[i]!.id && task.text === b[i]!.text);
 
 const make = Effect.gen(function* () {
   const engine = yield* Orchestrator.OrchestratorV2;
@@ -217,14 +227,59 @@ const make = Effect.gen(function* () {
     }
   });
 
-  const mirrorTasks = (threadId: ThreadId, steps: ReadonlyArray<OrchestrationV2PlanStep>) => {
+  // A long turn would otherwise show its work under no topic, and that topic's old status,
+  // until the scribe reads the finished turn.
+  const fileTasks = Effect.fnUntraced(function* (
+    threadId: ThreadId,
+    runId: RunId | null,
+    tasks: LedgerDocument["liveTasks"],
+  ) {
+    const doc = yield* store.get(threadId);
+    const topics = doc.topics.filter((t) => t.status !== "done" && t.status !== "rejected");
+    if (topics.length === 0) return;
+    const message =
+      runId === null
+        ? undefined
+        : yield* projections
+            .getRunMessage(threadId, runId)
+            .pipe(Effect.orElseSucceed(() => undefined));
+    const config = yield* settings;
+    const outcome = yield* callModel(threadId, {
+      model: config.ledgerTurnModel,
+      systemPrompt: TASK_TOPIC_SYSTEM,
+      prompt: taskTopicPrompt(topics, message?.text, tasks),
+      schema: TASK_TOPIC_SCHEMA,
+    });
+    if (Result.isFailure(outcome) || Option.isNone(outcome.success)) return;
+    const { output, costUsd } = outcome.success.value;
+    const topicId =
+      typeof output === "object" && output !== null && "topic" in output
+        ? String(output.topic)
+        : "";
+    yield* store.update(threadId, (current) => {
+      if (!current.enabled) return current;
+      const paid = { ...current, costUsd: current.costUsd + costUsd };
+      return sameTaskList(current.liveTasks, tasks) ? filedLiveTasks(paid, topicId) : paid;
+    });
+  });
+
+  const mirrorTasks = Effect.fnUntraced(function* (
+    threadId: ThreadId,
+    runId: RunId | null,
+    steps: ReadonlyArray<OrchestrationV2PlanStep>,
+  ) {
     const tasks = liveTasksFrom(steps);
-    return store.update(threadId, (current) =>
-      !current.enabled || sameTasks(current.liveTasks, tasks)
-        ? current
-        : { ...current, liveTasks: tasks },
-    );
-  };
+    const before = yield* store.get(threadId);
+    const after = yield* store.update(threadId, (current) => {
+      if (!current.enabled || sameTasks(current.liveTasks, tasks)) return current;
+      if (sameTaskList(current.liveTasks, tasks)) return { ...current, liveTasks: tasks };
+      const { liveTopic: _filed, ...unfiled } = current;
+      return { ...unfiled, liveTasks: tasks };
+    });
+    if (after.enabled && tasks.length > 0 && !sameTaskList(before.liveTasks, tasks)) {
+      yield* fileTasks(threadId, runId, tasks);
+    }
+  });
 
   const scribeRun = (threadId: ThreadId, runId: RunId) =>
     scribe(threadId, runId).pipe(Effect.ensuring(store.update(threadId, withoutScribing)));
@@ -264,7 +319,7 @@ const make = Effect.gen(function* () {
       event.type === "run.updated" && SCRIBED_RUN_STATUSES.has(event.payload.status)
         ? scribeRun(event.threadId, event.payload.id)
         : event.type === "turn-item.updated" && event.payload.type === "todo_list"
-          ? mirrorTasks(event.threadId, event.payload.steps)
+          ? mirrorTasks(event.threadId, event.payload.runId, event.payload.steps)
           : event.type === "thread.deleted"
             ? store.remove(event.threadId).pipe(Effect.andThen(launchers.forget(event.threadId)))
             : Effect.void;

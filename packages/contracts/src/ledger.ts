@@ -83,6 +83,8 @@ export const LedgerDocument = Schema.Struct({
   /** The turn the last cleanup sweep ran after. */
   sweptTurn: NonNegativeInt,
   liveTasks: Schema.Array(LedgerLiveTask).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
+  /** The topic the live task list was filed under, once a scribe call placed it. */
+  liveTopic: Schema.optionalKey(Schema.String),
   /** What the scribe's model calls have cost this thread so far, in US dollars. */
   costUsd: Schema.Number.pipe(Schema.withDecodingDefault(Effect.succeed(0))),
   /** The last run the scribe read, so the repeated updates of a finished run are read once. */

@@ -1,4 +1,4 @@
-import type { LedgerDocument } from "@t3tools/contracts";
+import type { LedgerDocument, LedgerLiveTask, LedgerTopic } from "@t3tools/contracts";
 
 import {
   LEDGER_TOPIC_STATUSES,
@@ -60,7 +60,8 @@ exploring (being discussed), shaped (options clear, none chosen), chosen (direct
    - A decision is "dropped" when ${user} later replaced or reversed it; the note says what replaced it.
    - Start every note with the turn that settles it, e.g. "turn 29: ${user} said no". If you can't point to what settled it, leave it open.
    - A short reply settles a question too: "no", "okay sounds good", "go with your recommendation". So does putting it off: "skip it for now", "not now", "later" (answered, the note says it was put off).
-   - ${user}'s words settle items, never Claude's. Claude is shown this ledger and may restate it ("the question stays open"); that is no reason to keep an item open.
+   - What Claude did settles items too: a question Claude asked is answered once Claude went ahead with it (say so: "turn 12: Claude started it"), and when Claude reviews the ledger and reports items as settled, close those items with the reason it gives.
+   - Claude is shown this ledger and may repeat it ("the question stays open"); a repeat is not news and never a reason to keep an item open.
    - Leave an item out when nothing in this turn settles it.
 2. statuses: the status of EVERY topic that is not done or rejected, as it stands after this turn. Move it when the work moved: ${user} chose a direction (chosen), work started (active), built and waiting on ${user} (review), signed off with a merge or deploy left (active, with that step as an open to-do), nothing left (done).
 3. new_topics: only when a separate subject becomes real work. Never a topic whose name matches one already in the LEDGER.
@@ -164,6 +165,28 @@ export const TURN_REPLY_SCHEMA = {
     ),
     revisions,
   },
+} as const;
+
+/** For filing a task list the working agent just started, mid-turn, before the scribe runs. */
+export const TASK_TOPIC_SYSTEM =
+  "You file a coding agent's new task list under the topic of a thread's ledger that the work belongs to. Reply with that topic's id, or an empty string when none fits.";
+
+export const taskTopicPrompt = (
+  topics: ReadonlyArray<LedgerTopic>,
+  message: string | undefined,
+  tasks: ReadonlyArray<LedgerLiveTask>,
+) =>
+  [
+    `TOPICS\n${topics.map((t) => `${t.id} ${t.name} [${t.status}]`).join("\n")}`,
+    `THE MESSAGE THE AGENT IS WORKING ON\n${clip(message ?? "", RECENT_TEXT_LIMIT) || "(none)"}`,
+    `TASK LIST\n${tasks.map((t) => `- ${t.text}`).join("\n")}`,
+  ].join("\n\n");
+
+export const TASK_TOPIC_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["topic"],
+  properties: { topic: text },
 } as const;
 
 export const SWEEP_REPLY_SCHEMA = {

@@ -418,7 +418,7 @@ describe("LedgerReactor", () => {
     }).pipe(Effect.provide(layerFor(h, { ledgerSweepEvery: 100 })));
   });
 
-  it.effect("mirrors the agent's task list with no model call, only while on", () => {
+  it.effect("mirrors the agent's task list while on, and files each new list under a topic", () => {
     const h = harness();
     const todo = (
       steps: ReadonlyArray<{
@@ -449,7 +449,21 @@ describe("LedgerReactor", () => {
         { id: "1", text: "Build", status: "completed" },
         { id: "2", text: "Test", status: "in_progress" },
       ]);
+      // With no topic to file it under, there is nothing to ask.
       assert.strictEqual(h.calls.length, 0);
+
+      yield* store.update(ledgerThreadId, (doc) => ({
+        ...doc,
+        topics: [{ id: "T1", name: "Ledger", status: "shaped", turn: 1, items: [] }],
+      }));
+      h.turnReply = () => ({ topic: "t1" });
+      yield* reactor.process(todo([{ id: "3", text: "Wire it", status: "running" }]));
+      yield* reactor.process(todo([{ id: "3", text: "Wire it", status: "completed" }]));
+      const filed = yield* store.get(ledgerThreadId);
+      assert.deepStrictEqual(
+        [filed.liveTopic, filed.topics[0]!.status, h.calls.length],
+        ["T1", "active", 1],
+      );
     }).pipe(Effect.provide(layerFor(h)));
   });
 });

@@ -72,6 +72,17 @@ export function seededLedger(
   };
 }
 
+/** Files the live task list under a topic still open, which is then under way. */
+export function filedLiveTasks(doc: LedgerDocument, topicId: string): LedgerDocument {
+  const topic = doc.topics.find((t) => t.id.toLowerCase() === topicId.trim().toLowerCase());
+  if (topic === undefined || CLOSED_TOPIC.has(topic.status)) return doc;
+  return {
+    ...doc,
+    liveTopic: topic.id,
+    topics: doc.topics.map((t) => (t === topic ? { ...t, status: "active" } : t)),
+  };
+}
+
 export const draftOf = (doc: LedgerDocument): LedgerDraft => structuredClone(doc) as LedgerDraft;
 
 export interface ScribeClose {

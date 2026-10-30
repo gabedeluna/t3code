@@ -23,6 +23,17 @@ function panel(props: Partial<Parameters<typeof LedgerPanel>[0]> = {}) {
 }
 
 describe("LedgerPanel", () => {
+  it("shows the task list under the topic it was filed under", async () => {
+    await using screen = await render(panel({ ledger: { ...BUSY_LEDGER, liveTopic: "T1" } }));
+
+    await expect
+      .element(screen.getByRole("region", { name: "Working now" }))
+      .not.toBeInTheDocument();
+    const topics = screen.getByRole("region", { name: "Topics" });
+    await expect.element(topics.getByText("Working now · 1/3")).toBeVisible();
+    await expect.element(topics.getByText("Add slot claims")).toBeVisible();
+  });
+
   it("lays out a busy ledger as the mockup does", async () => {
     await using screen = await render(panel());
 
