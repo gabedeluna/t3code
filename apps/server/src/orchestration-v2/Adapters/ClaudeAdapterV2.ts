@@ -10674,7 +10674,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
         yield* Effect.addFinalizer(() => closeSession());
 
         // Metadata-only transcripts cannot be resumed or recreated; fail resumeThread to trigger a fresh session and handoff.
-        const hasEmptyClaudeTranscript = Effect.fn("ClaudeAdapterV2.hasEmptyClaudeTranscript")(
+        const claudeTranscriptContents = Effect.fn("ClaudeAdapterV2.claudeTranscriptContents")(
           function* (nativeThreadId: string) {
             const configuredDir = adapterOptions.environment.CLAUDE_CONFIG_DIR?.trim() ?? "";
             const projectsDir = path.join(
@@ -10702,11 +10702,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   Stream.runHead,
                 );
               if (Option.isSome(conversationLine)) {
-                return false;
+                return "conversation" as const;
               }
               found = true;
             }
-            return found;
+            return found ? ("empty" as const) : ("missing" as const);
           },
         );
 
@@ -10796,20 +10796,28 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           resumeThread: Effect.fn("ClaudeAdapterV2.resumeThread")(
             function* (threadInput: { readonly providerThread: OrchestrationV2ProviderThread }) {
               const nativeThreadId = threadInput.providerThread.nativeThreadRef?.nativeId;
-              if (
-                nativeThreadId !== undefined &&
-                nativeThreadId !== null &&
+              const transcript =
+                nativeThreadId === undefined ||
+                nativeThreadId === null ||
                 // A live process holds the conversation even before saving it.
-                (yield* Ref.get(queryContext))?.nativeThreadId !== nativeThreadId &&
-                // An unreadable transcript leaves the resume to the CLI.
-                (yield* hasEmptyClaudeTranscript(nativeThreadId).pipe(
-                  Effect.orElseSucceed(() => false),
-                ))
-              ) {
+                (yield* Ref.get(queryContext))?.nativeThreadId === nativeThreadId
+                  ? "live"
+                  : // An unreadable transcript leaves the resume to the CLI.
+                    yield* claudeTranscriptContents(nativeThreadId).pipe(
+                      Effect.orElseSucceed(() => "unreadable" as const),
+                    );
+              if (transcript === "empty") {
                 return yield* new ProviderAdapter.ProviderAdapterProtocolError({
                   driver: CLAUDE_PROVIDER,
                   detail: `Claude session ${nativeThreadId} has no conversation to resume.`,
                 });
+              }
+              // A saved conversation T3 never ran, such as an imported Claude Code session,
+              // has no provider turns to say so; opening it under its own id would fail as in use.
+              if (transcript === "conversation" && nativeThreadId != null) {
+                yield* Ref.update(openedNativeThreads, (current) =>
+                  current.has(nativeThreadId) ? current : new Set(current).add(nativeThreadId),
+                );
               }
               const updatedAt = yield* DateTime.now;
               return {

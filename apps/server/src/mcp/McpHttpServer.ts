@@ -49,6 +49,8 @@ import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
 import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
 import { LedgerToolkit } from "./toolkits/ledger/tools.ts";
 import * as LedgerHandlers from "./toolkits/ledger/handlers.ts";
+import { ClaudeImportToolkit } from "./toolkits/claudeImport/tools.ts";
+import * as ClaudeImportHandlers from "./toolkits/claudeImport/handlers.ts";
 import { ProjectToolkit } from "./toolkits/project/tools.ts";
 import * as ProjectHandlers from "./toolkits/project/handlers.ts";
 import { AttachmentToolkit } from "./toolkits/attachment/tools.ts";
@@ -1120,6 +1122,11 @@ export const layerAttachmentToolkit = toolkitRegistration(
 
 const layerLedgerToolkit = toolkitRegistration(LedgerToolkit, LedgerHandlers.layer);
 
+const layerClaudeImportToolkit = toolkitRegistration(
+  ClaudeImportToolkit,
+  ClaudeImportHandlers.layer,
+);
+
 export const layerPullRequestsToolkit = toolkitRegistration(
   PullRequestsToolkit,
   PullRequestsHandlers.layer,
@@ -1162,6 +1169,7 @@ export const layerTools = Layer.mergeAll(
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerLedgerToolkit,
+  layerClaudeImportToolkit,
 );
 
 export const layer = layerTools.pipe(Layer.provideMerge(layerMcpTransport));
