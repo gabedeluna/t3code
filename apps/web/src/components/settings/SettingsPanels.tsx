@@ -784,14 +784,15 @@ export function GeneralSettingsPanel() {
         {isElectron ? (
           <SettingsRow
             {...searchableSetting("light-panel-notifications")}
-            description="Ripple the Nanoleaf light panels when a thread finishes. Needs the nanoleaf controller on this PC, and skips the ripple while the panels are off."
+            description="Ripple the Nanoleaf light panels when a thread finishes, and pulse them blue when one needs you. Needs the nanoleaf controller on this PC, and stays dark while the panels are off."
             control={
               <Switch
                 checked={settings.lightPanelNotificationsEnabled}
                 onCheckedChange={(checked) => {
                   updateSettings({ lightPanelNotificationsEnabled: checked });
                   // A preview, so turning it on shows what it looks like.
-                  if (checked) void window.desktopBridge?.flashLightPanels().catch(() => false);
+                  if (checked)
+                    void window.desktopBridge?.flashLightPanels("finished").catch(() => false);
                 }}
                 aria-label="Light panels"
               />

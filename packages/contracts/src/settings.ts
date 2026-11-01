@@ -361,7 +361,7 @@ export const ClientSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("off" as const)),
   ),
   inAppNotificationsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  /** Ripple the Nanoleaf light panels when a thread completes (desktop app with the nanoleaf controller). */
+  /** Flash the Nanoleaf light panels when a thread completes or needs the user (desktop app with the nanoleaf controller). */
   lightPanelNotificationsEnabled: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(false)),
   ),

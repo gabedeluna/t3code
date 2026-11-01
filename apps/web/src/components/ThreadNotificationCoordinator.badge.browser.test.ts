@@ -264,17 +264,17 @@ it("holds a completion through a continuation gap and notifies once it settles",
   expect(TestNotification.sent.map((sent) => sent.title)).toEqual(["Thread completed"]);
 });
 
-it("ripples the light panels for completions only, even with other notifications off", async () => {
+it("flashes the light panels for waiting and finished threads, even with other notifications off", async () => {
   await using app = setup();
   state.mode = "off";
   state.lights = true;
-  const flashLightPanels = vi.fn(() => Promise.resolve(true));
+  const flashLightPanels = vi.fn((_kind: string) => Promise.resolve(true));
   using _bridge = stubGlobal("desktopBridge", { flashLightPanels });
   app.start();
   using _timers = fakeTimers();
   state.shells.set("one", shell({ hasPendingUserInput: true }));
   await vi.advanceTimersByTimeAsync(WORKING_EXIT_GRACE_MS);
-  expect(flashLightPanels).not.toHaveBeenCalled();
+  expect(flashLightPanels.mock.calls).toEqual([["waiting"]]);
   state.shells.set(
     "one",
     shell({
@@ -282,7 +282,7 @@ it("ripples the light panels for completions only, even with other notifications
     }),
   );
   await vi.advanceTimersByTimeAsync(WORKING_EXIT_GRACE_MS);
-  expect(flashLightPanels).toHaveBeenCalledTimes(1);
+  expect(flashLightPanels.mock.calls).toEqual([["waiting"], ["finished"]]);
   expect(state.sound).not.toHaveBeenCalled();
   expect(TestNotification.sent).toEqual([]);
 });

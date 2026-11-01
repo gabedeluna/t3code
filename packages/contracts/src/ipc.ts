@@ -1019,6 +1019,10 @@ export const DesktopPreviewRecordingSaveInputSchema = Schema.Struct({
 export const SystemSettingsPaneSchema = Schema.Literals(["full-disk-access"]);
 export type SystemSettingsPane = typeof SystemSettingsPaneSchema.Type;
 
+/** Which light-panel pattern to play: a thread finished, or one is waiting on the user. */
+export const LightPanelFlashSchema = Schema.Literals(["finished", "waiting"]);
+export type LightPanelFlash = typeof LightPanelFlashSchema.Type;
+
 export interface DesktopBridge {
   getAppBranding: () => DesktopAppBranding | null;
   getRelayTelemetryEnabled: () => boolean;
@@ -1034,11 +1038,11 @@ export interface DesktopBridge {
    */
   revealWindow: () => Promise<void>;
   /**
-   * Runs the Nanoleaf controller's "thread finished" ripple
-   * (`~/.claude/skills/nanoleaf/scripts/nanoleaf.py done`). Resolves false when
-   * that controller isn't installed on this device.
+   * Plays a Nanoleaf controller pattern (`~/.claude/skills/nanoleaf/scripts/nanoleaf.py`):
+   * the "finished" ripple or the "waiting" pulse. Resolves false when that controller
+   * isn't installed on this device.
    */
-  flashLightPanels: () => Promise<boolean>;
+  flashLightPanels: (kind: LightPanelFlash) => Promise<boolean>;
   /**
    * The OS locale as a BCP-47 tag, which the renderer cannot read for itself:
    * the packaged app ships only the `en-US` Chromium locale pak, so

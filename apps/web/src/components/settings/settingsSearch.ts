@@ -534,7 +534,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Light panels",
     to: "/settings/general",
     desktopOnly: true,
-    searchTerms: ["notification nanoleaf light panels lights ripple flash completion"],
+    searchTerms: [
+      "notification nanoleaf light panels lights ripple flash pulse completion input approval waiting",
+    ],
   },
   {
     id: "time-format",

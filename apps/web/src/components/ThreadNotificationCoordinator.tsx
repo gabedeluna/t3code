@@ -106,8 +106,10 @@ export function startThreadNotifications(
         hasNotificationSound(getClientSettings().notificationMode),
       );
     }
-    if (kind === "completion" && lightPanelNotificationsEnabled) {
-      void window.desktopBridge?.flashLightPanels().catch(() => false);
+    if (lightPanelNotificationsEnabled) {
+      void window.desktopBridge
+        ?.flashLightPanels(kind === "completion" ? "finished" : "waiting")
+        .catch(() => false);
     }
     if (
       inAppNotificationsEnabled &&
