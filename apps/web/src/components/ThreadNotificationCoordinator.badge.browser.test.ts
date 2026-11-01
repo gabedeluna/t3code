@@ -11,6 +11,7 @@ import { fakeTimers, stubGlobal } from "../../test/render";
 const state = vi.hoisted(() => ({
   mode: "notifications",
   inApp: false,
+  lights: false,
   toast: vi.fn(),
   shells: null as unknown as { set: (id: string, value: unknown) => void },
   navigate: vi.fn(),
@@ -67,6 +68,7 @@ vi.mock(import("../hooks/useSettings"), async (original) => ({
   getClientSettings: (() => ({
     notificationMode: state.mode,
     inAppNotificationsEnabled: state.inApp,
+    lightPanelNotificationsEnabled: state.lights,
   })) as never,
 }));
 vi.mock(import("../threadNotifications"), async (original) => ({
@@ -189,6 +191,7 @@ function setup() {
   stack.defer(() => testRegistry.dispose());
   state.mode = "notifications";
   state.inApp = false;
+  state.lights = false;
   state.settingsListeners.clear();
   registry.set(environmentIdsAtom, ["one", "two"]);
   state.shells.set("one", shell());
@@ -259,6 +262,29 @@ it("holds a completion through a continuation gap and notifies once it settles",
   expect(TestNotification.sent).toEqual([]);
   await vi.advanceTimersByTimeAsync(1);
   expect(TestNotification.sent.map((sent) => sent.title)).toEqual(["Thread completed"]);
+});
+
+it("ripples the light panels for completions only, even with other notifications off", async () => {
+  await using app = setup();
+  state.mode = "off";
+  state.lights = true;
+  const flashLightPanels = vi.fn(() => Promise.resolve(true));
+  using _bridge = stubGlobal("desktopBridge", { flashLightPanels });
+  app.start();
+  using _timers = fakeTimers();
+  state.shells.set("one", shell({ hasPendingUserInput: true }));
+  await vi.advanceTimersByTimeAsync(WORKING_EXIT_GRACE_MS);
+  expect(flashLightPanels).not.toHaveBeenCalled();
+  state.shells.set(
+    "one",
+    shell({
+      latestTurn: { turnId: "turn", state: "completed", completedAt: "2026-09-13T07:05:00.000Z" },
+    }),
+  );
+  await vi.advanceTimersByTimeAsync(WORKING_EXIT_GRACE_MS);
+  expect(flashLightPanels).toHaveBeenCalledTimes(1);
+  expect(state.sound).not.toHaveBeenCalled();
+  expect(TestNotification.sent).toEqual([]);
 });
 
 it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(

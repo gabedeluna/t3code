@@ -53,7 +53,7 @@ interface WatchedEnvironment {
 
 /**
  * Turns thread status transitions in every connected environment into sounds, in-app toasts,
- * and desktop notifications, and keeps the dock badge in step with the unread ones.
+ * desktop notifications and light-panel ripples, and keeps the dock badge in step with the unread ones.
  */
 export function startThreadNotifications(
   registry: AtomRegistry.AtomRegistry,
@@ -80,7 +80,11 @@ export function startThreadNotifications(
     kind: ThreadNotificationKind,
   ) => {
     const { thread, status } = state;
-    const { notificationMode: mode, inAppNotificationsEnabled } = getClientSettings();
+    const {
+      notificationMode: mode,
+      inAppNotificationsEnabled,
+      lightPanelNotificationsEnabled,
+    } = getClientSettings();
     const active = (router.state.matches.at(-1)?.params ?? {}) as {
       environmentId?: string;
       threadId?: string;
@@ -101,6 +105,9 @@ export function startThreadNotifications(
       void playNotificationSound(kind, () =>
         hasNotificationSound(getClientSettings().notificationMode),
       );
+    }
+    if (kind === "completion" && lightPanelNotificationsEnabled) {
+      void window.desktopBridge?.flashLightPanels().catch(() => false);
     }
     if (
       inAppNotificationsEnabled &&
@@ -285,8 +292,10 @@ export function startThreadNotifications(
   };
 
   const syncEnvironments = () => {
-    const { notificationMode, inAppNotificationsEnabled } = getClientSettings();
-    const enabled = notificationMode !== "off" || inAppNotificationsEnabled;
+    const { notificationMode, inAppNotificationsEnabled, lightPanelNotificationsEnabled } =
+      getClientSettings();
+    const enabled =
+      notificationMode !== "off" || inAppNotificationsEnabled || lightPanelNotificationsEnabled;
     const environmentIds = enabled ? registry.get(environmentSummaries.environmentIdsAtom) : [];
     const activeIds = new Set(environmentIds);
     for (const [environmentId, entry] of watched) {

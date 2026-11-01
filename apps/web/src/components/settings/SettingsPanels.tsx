@@ -450,6 +450,10 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.inAppNotificationsEnabled !== DEFAULT_UNIFIED_SETTINGS.inAppNotificationsEnabled
       ? ["In-app notifications"]
       : []),
+    ...(settings.lightPanelNotificationsEnabled !==
+    DEFAULT_UNIFIED_SETTINGS.lightPanelNotificationsEnabled
+      ? ["Light panels"]
+      : []),
     ...(settings.sidebarProjectGroupingMode !== DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode
       ? ["Project Grouping"]
       : []),
@@ -608,6 +612,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       timestampFormat: DEFAULT_UNIFIED_SETTINGS.timestampFormat,
       notificationMode: DEFAULT_UNIFIED_SETTINGS.notificationMode,
       inAppNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.inAppNotificationsEnabled,
+      lightPanelNotificationsEnabled: DEFAULT_UNIFIED_SETTINGS.lightPanelNotificationsEnabled,
       wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
       persistComposerContextStrip: DEFAULT_UNIFIED_SETTINGS.persistComposerContextStrip,
       diffFilesCollapsed: DEFAULT_UNIFIED_SETTINGS.diffFilesCollapsed,
@@ -776,6 +781,23 @@ export function GeneralSettingsPanel() {
             />
           }
         />
+        {isElectron ? (
+          <SettingsRow
+            {...searchableSetting("light-panel-notifications")}
+            description="Ripple the Nanoleaf light panels when a thread finishes. Needs the nanoleaf controller on this PC, and skips the ripple while the panels are off."
+            control={
+              <Switch
+                checked={settings.lightPanelNotificationsEnabled}
+                onCheckedChange={(checked) => {
+                  updateSettings({ lightPanelNotificationsEnabled: checked });
+                  // A preview, so turning it on shows what it looks like.
+                  if (checked) void window.desktopBridge?.flashLightPanels().catch(() => false);
+                }}
+                aria-label="Light panels"
+              />
+            }
+          />
+        ) : null}
       </SettingsSection>
 
       <SettingsSection id="sidebar" title="Sidebar">

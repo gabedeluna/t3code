@@ -1034,6 +1034,12 @@ export interface DesktopBridge {
    */
   revealWindow: () => Promise<void>;
   /**
+   * Runs the Nanoleaf controller's "thread finished" ripple
+   * (`~/.claude/skills/nanoleaf/scripts/nanoleaf.py done`). Resolves false when
+   * that controller isn't installed on this device.
+   */
+  flashLightPanels: () => Promise<boolean>;
+  /**
    * The OS locale as a BCP-47 tag, which the renderer cannot read for itself:
    * the packaged app ships only the `en-US` Chromium locale pak, so
    * `navigator.language` and the default `Intl` locale are pinned to `en-US`

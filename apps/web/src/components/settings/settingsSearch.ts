@@ -530,6 +530,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["notification toast popup completion input approval failure"],
   },
   {
+    id: "light-panel-notifications",
+    title: "Light panels",
+    to: "/settings/general",
+    desktopOnly: true,
+    searchTerms: ["notification nanoleaf light panels lights ripple flash completion"],
+  },
+  {
     id: "time-format",
     title: "Time format",
     to: "/settings/general",
